@@ -12,7 +12,7 @@
 <meta name="description" content="Tongits, Pusoy Dos, In Between, Bingo and Solitaire. Play with friends using a room code.">
 <script src="/api/config"></script>
 <script src="/vendor/supabase.js"></script>
-<title>CARDVERSE</title>
+<title>DeckFlix</title>
 <meta name="theme-color" content="#090D18">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,7 +73,8 @@ p { margin: 0; }
 .side { position: sticky; top: 0; height: 100vh; padding: 22px 16px; display: flex; flex-direction: column; gap: 22px;
   background: linear-gradient(180deg, rgba(12,18,33,.92), rgba(9,13,24,.92)); border-right: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; text-decoration: none; }
-.brand .word { font-family: var(--f-head); font-weight: 700; font-size: 19px; letter-spacing: .14em; }
+.brand .word { font-family: var(--f-head); font-weight: 700; font-size: 21px; letter-spacing: -.01em; }
+.brand .word-b { color: var(--cyan, #20E5FF); }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: var(--muted); font-weight: 500; position: relative; transition: background .2s, color .2s; }
 .nav a svg { width: 20px; height: 20px; flex: none; }
@@ -741,7 +742,7 @@ p.loc .flag { width: 24px; height: 18px; }
 </head>
 <body>
 <div id="app"></div>
-<script>/* CARDVERSE game engines
+<script>/* DeckFlix game engines
  * Each game is a separate, authoritative rules engine with the same contract:
  *   create(config, rng)        -> full state (server-side only)
  *   view(state, seat)          -> redacted state for one seat (hidden cards removed)
@@ -2001,7 +2002,7 @@ p.loc .flag { width: 24px; height: 18px; }
   else root.CV = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>/* CARDVERSE platform UI: store, brand, art, pages */
+<script>/* DeckFlix platform UI: store, brand, art, pages */
 (function () {
   'use strict';
   const $ = (s, el = document) => el.querySelector(s);
@@ -2064,7 +2065,7 @@ p.loc .flag { width: 24px; height: 18px; }
       <rect x="14" y="7" width="19" height="27" rx="4" transform="rotate(9 23.5 20.5)" fill="#0E1530" stroke="url(#${a})" stroke-width="2.2"/>
       <path d="M23.6 13.5 28.4 20.6 23.6 27.7 18.8 20.6Z" fill="url(#${a})" transform="rotate(9 23.5 20.5)"/></svg>`;
   };
-  App.logo = () => `<span class="brand-in" style="display:flex;align-items:center;gap:10px">${App.emblem(34)}<span class="word">CARDVERSE</span></span>`;
+  App.logo = () => `<span class="brand-in" style="display:flex;align-items:center;gap:10px">${App.emblem(34)}<span class="word">Deck<span class="word-b">Flix</span></span></span>`;
 
   // ------------------------------------------------------------------ avatars
   const AV = [['#386BFF', '#20E5FF'], ['#9747FF', '#386BFF'], ['#FF8A32', '#9747FF'], ['#20E5FF', '#3DF2A8'], ['#FF5470', '#FF8A32'], ['#386BFF', '#9747FF'], ['#3DF2A8', '#386BFF'], ['#FFC06B', '#FF5470']];
@@ -2264,7 +2265,7 @@ p.loc .flag { width: 24px; height: 18px; }
     <div class="atmos"><div class="grid"></div></div>
     <div class="shell">
       <aside class="side">
-        <a class="brand" href="#lobby" aria-label="CARDVERSE home">${App.logo()}</a>
+        <a class="brand" href="#lobby" aria-label="DeckFlix home">${App.logo()}</a>
         <nav class="nav" aria-label="Main">${NAV.map(([h, l, i]) => `<a href="#${h}" data-nav="${h}">${App.icon(i)}<span>${l}</span></a>`).join('')}</nav>
         <div class="side-foot">
           <div class="legend"><b>What’s live</b>
@@ -2559,7 +2560,7 @@ p.loc .flag { width: 24px; height: 18px; }
         return;
       }
       const pod = (p, place, cls = '') => p ? `<div class="p ${cls}">${App.avatar(p.name, p.av, cls ? 'lg' : '', p.photo)}<span class="place">${place}</span><b>${esc(p.name)}${p.you ? ' (you)' : ''}</b>${p.loc ? `<span class="tiny muted loc">${App.flag(p.country)}${esc(p.loc)}</span>` : ''}<span class="pts">${p.points.toLocaleString()}</span><span class="tiny muted">${p.rate}% win rate</span></div>` : '<div></div>';
-      el.innerHTML = `${scope === 'device' ? '<p class="note" style="margin-bottom:16px">Showing results from this device only. Rankings for everyone appear on the online version of CARDVERSE.</p>' : ''}
+      el.innerHTML = `${scope === 'device' ? '<p class="note" style="margin-bottom:16px">Showing results from this device only. Rankings for everyone appear on the online version of DeckFlix.</p>' : ''}
         ${rows.length >= 3 ? `<div class="podium">${pod(rows[1], '2nd')}${pod(rows[0], '1st', 'first')}${pod(rows[2], '3rd')}</div>` : ''}
         <section class="glass panel" style="overflow-x:auto">
           <table class="table rank-table"><thead><tr><th style="width:44px">Rank</th><th>Player</th><th class="num opt">Games</th><th class="num">Wins</th><th class="num opt">Win rate</th><th class="num">Points</th></tr></thead><tbody>
@@ -2587,18 +2588,18 @@ p.loc .flag { width: 24px; height: 18px; }
     let tab = 'guest', pick = u.avatar, photo = u.photo || null;
     const draw = () => {
       const s = App.modal(`
-        <div class="row" style="gap:12px">${App.emblem(40)}<div><h2>${edit ? 'Edit profile' : 'Welcome to CARDVERSE'}</h2><p class="muted small">${edit ? 'Update your name, photo and location.' : 'Filipino and classic card games, built for the table.'}</p></div></div>
+        <div class="row" style="gap:12px">${App.emblem(40)}<div><h2>${edit ? 'Edit profile' : 'Welcome to DeckFlix'}</h2><p class="muted small">${edit ? 'Update your name, photo and location.' : 'Filipino and classic card games, built for the table.'}</p></div></div>
         ${edit ? '' : `<div class="tabs" role="tablist">${[['guest', 'Play as guest'], ['signup', 'Sign up'], ['login', 'Log in']].map(([k, l]) => `<button role="tab" class="${tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>`}
         ${tab === 'guest' || edit ? `<form class="stack" data-form="guest" style="${edit ? 'margin-top:18px' : ''}">
             <div class="row" style="gap:16px;align-items:center">
-              <span id="ph-prev">${App.avatar(u.name || 'CV', pick, 'lg', photo)}</span>
+              <span id="ph-prev">${App.avatar(u.name || 'DF', pick, 'lg', photo)}</span>
               <div class="stack" style="gap:8px">
                 <label class="btn btn-ghost btn-sm" style="cursor:pointer">${photo ? 'Change photo' : 'Upload a photo'}<input type="file" accept="image/*" id="ph-file" class="sr"></label>
                 ${photo ? '<button type="button" class="btn btn-quiet btn-sm" id="ph-remove">Remove photo</button>' : '<span class="tiny muted">Optional. Others see it in rooms and rankings.</span>'}
                 <span class="tiny" id="ph-err" style="color:var(--bad)"></span>
               </div>
             </div>
-            ${photo ? '' : `<div class="field"><span class="lab">Or pick a colour</span><div class="avatar-pick">${App.AV.map((_, i) => `<button type="button" class="${i === pick ? 'on' : ''}" data-av="${i}" aria-label="Avatar colour ${i + 1}">${App.avatar(u.name || 'CV', i)}</button>`).join('')}</div></div>`}
+            ${photo ? '' : `<div class="field"><span class="lab">Or pick a colour</span><div class="avatar-pick">${App.AV.map((_, i) => `<button type="button" class="${i === pick ? 'on' : ''}" data-av="${i}" aria-label="Avatar colour ${i + 1}">${App.avatar(u.name || 'DF', i)}</button>`).join('')}</div></div>`}
             <div class="field"><label for="un">Username</label><input id="un" class="input" name="name" value="${esc(u.name)}" maxlength="16" placeholder="e.g. SapawKing" required autocomplete="off"><span class="tiny muted">3–16 letters, numbers or underscores.</span><span class="tiny" id="unerr" style="color:var(--bad)"></span></div>
             <div class="row" style="gap:12px;align-items:flex-start">
               <div class="field" style="flex:1;min-width:140px"><label for="city">City</label><input id="city" class="input" name="city" value="${esc(u.city || '')}" maxlength="40" placeholder="e.g. Marikina" autocomplete="address-level2" required></div>
@@ -2619,7 +2620,7 @@ p.loc .flag { width: 24px; height: 18px; }
       if (!edit) s.dataset.locked = '1';
       const keep = () => { const f0 = s.querySelector('form[data-form=guest]'); if (f0) { u.name = f0.name.value; u.city = f0.city.value; u.country = f0.country.value; } };
       s.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { keep(); tab = b.dataset.tab; draw(); }));
-      s.querySelectorAll('[data-av]').forEach((b) => b.addEventListener('click', () => { pick = +b.dataset.av; s.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); s.querySelector('#ph-prev').innerHTML = App.avatar(s.querySelector('#un').value || 'CV', pick, 'lg'); }));
+      s.querySelectorAll('[data-av]').forEach((b) => b.addEventListener('click', () => { pick = +b.dataset.av; s.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); s.querySelector('#ph-prev').innerHTML = App.avatar(s.querySelector('#un').value || 'DF', pick, 'lg'); }));
       const cin = s.querySelector('#country');
       if (cin) cin.addEventListener('input', () => { s.querySelector('#cflag').innerHTML = App.flag(cin.value); s.querySelector('#locerr').textContent = ''; });
       const file = s.querySelector('#ph-file');
@@ -2664,7 +2665,7 @@ p.loc .flag { width: 24px; height: 18px; }
         : '<p class="small muted">Finish an In Between session and save it to keep the full round-by-round history here.</p>'}</div>`;
   };
   App.sessionSummaryText = (x) => {
-    const lines = [`CARDVERSE In Between session, ${new Date(x.at).toLocaleString()}`, `Grand Champion: ${x.champNames}`, `Rounds completed: ${x.session.totalRounds} (target ${x.session.target} with a winner)`, `Starting points: ${x.config.sStart} each (virtual, no cash value)`, '', 'Final rankings:'];
+    const lines = [`DeckFlix In Between session, ${new Date(x.at).toLocaleString()}`, `Grand Champion: ${x.champNames}`, `Rounds completed: ${x.session.totalRounds} (target ${x.session.target} with a winner)`, `Starting points: ${x.config.sStart} each (virtual, no cash value)`, '', 'Final rankings:'];
     x.rows.forEach((r) => lines.push(`${r.place}. ${r.name}: ${r.wins} wins, ${r.losses} losses, ${r.final} points (${r.net >= 0 ? '+' : ''}${r.net})${r.eliminated ? `, eliminated round ${r.elimRound}` : ''}`));
     lines.push('', 'Rounds:');
     x.session.rounds.forEach((r) => lines.push(`R${r.n}: ${r.winner != null ? x.players[r.winner].name : 'no winner'}, ${r.how}`));
@@ -2787,7 +2788,7 @@ p.loc .flag { width: 24px; height: 18px; }
   App.locHTML = (o) => { const t = App.locText(o); return t ? `${App.flag(o && o.country)}<span>${App.esc(t)}</span>` : ''; };
 })();
 </script>
-<script>/* CARDVERSE game tables + router */
+<script>/* DeckFlix game tables + router */
 (function () {
   'use strict';
   const App = window.App, CV = window.CV, $ = App.$, esc = App.esc;
@@ -3556,7 +3557,7 @@ p.loc .flag { width: 24px; height: 18px; }
       e.preventDefault();
       const code = f.code.value.trim().toUpperCase();
       if (code.length !== 5) { $('#joinmsg').innerHTML = '<div class="note warn">Room codes are 5 letters or numbers.</div>'; return; }
-      if (!App.Net.available()) { $('#joinmsg').innerHTML = `<div class="note warn">Online play isn’t switched on in this copy of CARDVERSE. Open the deployed site to join friends.</div>`; return; }
+      if (!App.Net.available()) { $('#joinmsg').innerHTML = `<div class="note warn">Online play isn’t switched on in this copy of DeckFlix. Open the deployed site to join friends.</div>`; return; }
       location.hash = 'join-' + code;
     }
   });
@@ -3570,7 +3571,7 @@ p.loc .flag { width: 24px; height: 18px; }
 
 })();
 </script>
-<script>/* CARDVERSE Solitaire table: tap a card to move it to its best spot, or drag it. */
+<script>/* DeckFlix Solitaire table: tap a card to move it to its best spot, or drag it. */
 (function () {
   'use strict';
   const App = window.App, CV = window.CV, $ = App.$;
@@ -3759,7 +3760,7 @@ p.loc .flag { width: 24px; height: 18px; }
   });
 })();
 </script>
-<script>/* CARDVERSE Bingo night: ball caller, cards, claims, five pattern rounds */
+<script>/* DeckFlix Bingo night: ball caller, cards, claims, five pattern rounds */
 (function () {
   'use strict';
   const App = window.App, CV = window.CV, $ = App.$, esc = App.esc;
@@ -4043,7 +4044,7 @@ p.loc .flag { width: 24px; height: 18px; }
   }
 })();
 </script>
-<script>/* CARDVERSE online layer
+<script>/* DeckFlix online layer
  * - Transport: Supabase Realtime broadcast (production) or BroadcastChannel (same-device testing)
  * - Online: invite-code rooms. The host's device runs the authoritative engine and sends each
  *   player only their own view over a private channel, so nobody receives another player's cards.
@@ -4509,7 +4510,7 @@ p.loc .flag { width: 24px; height: 18px; }
   };
 })();
 </script>
-<script>/* CARDVERSE online rooms UI: invite panel (host), waiting room (guest), joining */
+<script>/* DeckFlix online rooms UI: invite panel (host), waiting room (guest), joining */
 (function () {
   'use strict';
   const App = window.App, $ = App.$, esc = App.esc;
@@ -4523,7 +4524,7 @@ p.loc .flag { width: 24px; height: 18px; }
   };
   O.refreshRooms = () => { const h = (location.hash || '').slice(1); if (h === 'rooms' || h === 'room') App.softRender(); };
 
-  const inviteText = () => `Join my CARDVERSE room! Code: ${O.code}\n${O.shareLink()}`;
+  const inviteText = () => `Join my DeckFlix room! Code: ${O.code}\n${O.shareLink()}`;
 
   // ------------------------------------------------------------- host panel on the Rooms page
   App.onlinePanel = (r) => {
@@ -4535,7 +4536,7 @@ p.loc .flag { width: 24px; height: 18px; }
     if (!App.Net.available()) {
       return `<div class="glass panel stack">
           <div class="row between"><h3>Invite friends</h3><span class="pill soon">Online only</span></div>
-          <p class="small muted">${window.CV_CONFIG ? 'Online rooms aren’t switched on yet: the site still needs its Supabase settings (see the setup guide). Until then you can play with bots.' : 'Room codes work on the published CARDVERSE site. This preview can’t connect to the internet, so here you play with bots.'}</p>
+          <p class="small muted">${window.CV_CONFIG ? 'Online rooms aren’t switched on yet: the site still needs its Supabase settings (see the setup guide). Until then you can play with bots.' : 'Room codes work on the published DeckFlix site. This preview can’t connect to the internet, so here you play with bots.'}</p>
         </div>${join}`;
     }
     if (O.role !== 'host') {
@@ -4556,7 +4557,7 @@ p.loc .flag { width: 24px; height: 18px; }
           ${navigator.share ? '<button class="btn btn-ghost btn-sm" data-act="shareinvite">Share</button>' : ''}
           <button class="btn btn-quiet btn-sm" data-act="closeroom">Close room</button>
         </div>
-        <p class="tiny muted">Keep CARDVERSE open while you play: your device runs the table for everyone.</p>
+        <p class="tiny muted">Keep DeckFlix open while you play: your device runs the table for everyone.</p>
       </div>`;
   };
 
@@ -4623,7 +4624,7 @@ p.loc .flag { width: 24px; height: 18px; }
       if ((location.hash || '').slice(1) === 'room') App.softRender(); else location.hash = 'room';
       App.sfx('turn');
     })
-      .catch((err) => { App.joinError = err.message === 'offline' ? 'Online play isn’t switched on in this copy of CARDVERSE.' : err.message; if ((location.hash || '').slice(1) !== 'room') location.hash = 'room'; else App.softRender(); });
+      .catch((err) => { App.joinError = err.message === 'offline' ? 'Online play isn’t switched on in this copy of DeckFlix.' : err.message; if ((location.hash || '').slice(1) !== 'room') location.hash = 'room'; else App.softRender(); });
   };
 
   // a guest's lobby updates re-render the waiting room (only when something changed)
@@ -4660,7 +4661,7 @@ p.loc .flag { width: 24px; height: 18px; }
         catch (err) { App.modal(`<h2>Room ${O.code}</h2><p class="muted" style="margin:10px 0">Copy this and send it to your friends:</p><textarea class="input" rows="3" readonly style="width:100%">${esc(inviteText())}</textarea><div class="row" style="margin-top:14px"><button class="btn btn-ghost" data-close>Done</button></div>`); }
         break;
       case 'shareinvite':
-        try { await navigator.share({ title: 'CARDVERSE room ' + O.code, text: `Join my CARDVERSE room! Code: ${O.code}`, url: O.shareLink() }); } catch (err) { /* cancelled */ }
+        try { await navigator.share({ title: 'DeckFlix room ' + O.code, text: `Join my DeckFlix room! Code: ${O.code}`, url: O.shareLink() }); } catch (err) { /* cancelled */ }
         break;
       case 'closeroom': O.close(); App.softRender(); App.toast('Room closed.'); break;
       case 'leaveroom': App.closeModal(); if (App.match) { App.match.destroy(); App.match = null; } O.close(); App.joinError = null; location.hash = 'lobby'; break;

@@ -1,6 +1,6 @@
-# CARDVERSE: deploy guide
+# DeckFlix: deploy guide
 
-CARDVERSE is a single-page site. Vercel hosts it, and a free Supabase project powers
+DeckFlix is a single-page site. Vercel hosts it, and a free Supabase project powers
 room codes (live games between phones) and the rankings. Points are virtual only.
 
 ## 1. Create the Supabase project (free, about 3 minutes)
@@ -29,7 +29,7 @@ project and fills in the variables for you. You still need to run `supabase-setu
 - Rooms > pick a game > **Open room and get a code**. Send the code or link to a friend.
 - Your friend opens the link (or enters the code under Join), picks a name, city and
   country, taps **I'm ready**, and you press **Start**.
-- On phones, use **Add to Home Screen** to install CARDVERSE like an app.
+- On phones, use **Add to Home Screen** to install DeckFlix like an app.
 
 ## How online play works
 - The host's device runs the game. Each player only ever receives their own cards, over a

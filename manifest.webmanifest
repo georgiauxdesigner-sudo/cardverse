@@ -1,6 +1,6 @@
 {
-  "name": "CARDVERSE",
-  "short_name": "CARDVERSE",
+  "name": "DeckFlix",
+  "short_name": "DeckFlix",
   "description": "Tongits, Pusoy Dos, In Between, Bingo and Solitaire. Play with friends using a room code.",
   "start_url": "/",
   "display": "standalone",
