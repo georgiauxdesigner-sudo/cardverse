@@ -49,3 +49,8 @@ project and fills in the variables for you. You still need to run `supabase-setu
 - Guest profiles live on each device (no passwords yet), so ranking entries can't be
   verified against an account. Fine for friends; add Supabase Auth before running anything public.
 - The host's device is trusted to run the game fairly.
+
+## Keep-alive (stops Supabase free-plan pausing)
+`vercel.json` schedules a Vercel Cron job once a day (04:17 UTC) that calls `/api/keepalive`.
+It runs two tiny read queries so the free Supabase project never counts as inactive.
+Check it any time by opening `/api/keepalive` on your site — it should say `"ok": true`.
