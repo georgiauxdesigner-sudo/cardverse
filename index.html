@@ -157,7 +157,15 @@ main { min-width: 0; padding: 26px clamp(16px, 3vw, 40px) 80px; }
   background: radial-gradient(closest-side, rgba(32,229,255,.12), rgba(56,107,255,.06) 60%, transparent 72%); border: 1px solid rgba(32,229,255,.25); box-shadow: 0 0 60px rgba(32,229,255,.15), inset 0 0 80px rgba(56,107,255,.2); }
 .fan { position: absolute; left: 50%; top: 52%; width: 0; height: 0; }
 .fan .card { position: absolute; left: calc(var(--cw) * -.5); top: calc(var(--cw) * -.7); transform-origin: 50% 160%; transition: transform .5s var(--ease); }
-.hero:hover .fan .card { transform: rotate(var(--rot2)) translateY(-6px); }
+/* featured-game shuffle: keyframes are generated in App.shuffleCSS */
+.shuf { position: absolute; left: 50%; top: 54%; width: 0; height: 0; }
+.shuf .sb, .shuf .sd { position: absolute; left: calc(var(--cw) * -.5); top: calc(var(--cw) * -.7); animation-duration: var(--T); animation-delay: var(--sync); animation-iteration-count: infinite; animation-fill-mode: both; will-change: transform; }
+.shuf .sb { transform-origin: 50% 50%; }
+.shuf .sd { width: var(--cw); height: calc(var(--cw) * 1.4); transform-origin: 50% 160%; z-index: 40; perspective: 700px; }
+.shuf .flip { position: absolute; inset: 0; transform-style: preserve-3d; animation-duration: var(--T); animation-delay: var(--sync); animation-iteration-count: infinite; animation-fill-mode: both; animation-timing-function: cubic-bezier(.3,.7,.2,1); }
+.shuf .flip .card { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.shuf .flip .rev { transform: rotateY(180deg); }
+.hero-stage:has(.shuf) .meld-tag { animation: shuf-tag var(--T, 9s) infinite both; animation-delay: var(--sync, 0s); }
 .hero-stage .meld-tag { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); font-size: 12px; color: var(--cyan); background: rgba(9,13,24,.7); border: 1px solid rgba(32,229,255,.3); padding: 5px 12px; border-radius: 99px; white-space: nowrap; }
 
 /* ---------- lobby grid ---------- */
@@ -498,6 +506,13 @@ main { min-width: 0; padding: 26px clamp(16px, 3vw, 40px) 80px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+/* Reduced motion: no shuffle, just the dealt hand resting in its fan. */
+@media (prefers-reduced-motion: reduce) {
+  .shuf .sb { display: none; }
+  .shuf .sd { animation: none !important; transform: var(--fan); opacity: 1; }
+  .shuf .flip { animation: none !important; transform: none; }
+  .hero-stage:has(.shuf) .meld-tag { animation: none !important; opacity: 1; }
+}
 
 /* ---------- sessions ---------- */
 .sess { padding: 16px; border-radius: 16px; border: 1px solid rgba(32,229,255,.2); background: rgba(32,229,255,.03); }
@@ -532,7 +547,7 @@ details[open] summary::before { content: '–'; }
   .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
   .chip { flex: none; }
 }
-@media (max-width: 900px) { .hero-stage .meld-tag { bottom: 2%; } .fan { top: 46%; } }
+@media (max-width: 900px) { .hero-stage .meld-tag { bottom: 2%; } .fan { top: 46%; } .shuf { top: 50%; } }
 
 /* chow + bot action callouts */
 .pile { position: relative; }
@@ -2103,6 +2118,61 @@ p.loc .flag { width: 24px; height: 18px; }
       <div class="cn tl ${tc}">${l}<small>${s}</small></div>${mid}<div class="big">${s}</div><div class="cn br ${tc}">${l}<small>${s}</small></div></div>`;
   };
 
+  // ------------------------------------------------------------------ featured-game shuffle animation
+  // A deck is cut, riffled together, squared, then five cards are dealt face up into a fan,
+  // held for a beat and gathered back. One 9-second loop, transforms and opacity only.
+  // The loop is synced to the clock so a lobby re-render continues it instead of restarting.
+  const SHUF_T = 9, SHUF_N = 12;
+  App.shuffleCSS = () => {
+    if (document.getElementById('shuf-css')) return;
+    const N = SHUF_N, H = Math.floor(N / 2), st = (i) => -i * 1.3;
+    const pc = (v) => Math.max(0, Math.min(100, v)).toFixed(2) + '%';
+    const ease = 'cubic-bezier(.3,.7,.2,1)';
+    let css = '';
+    // riffle order: bottom of the left half, bottom of the right half, alternating
+    const order = [];
+    for (let k = 0; k < H; k++) order.push(k, k + H);
+    for (let i = 0; i < N; i++) {
+      const left = i < H, side = left ? -1 : 1, k = order.indexOf(i);
+      const inHalf = left ? i : i - H;
+      const split = `translate(calc(var(--cw) * ${0.62 * side}), ${(-inHalf * 1.3 - 4).toFixed(1)}px) rotate(${10 * side}deg)`;
+      const drop = 19 + k * 1.7;
+      css += `@keyframes shuf-b${i}{` +
+        `0%,8%{transform:translate(0,${st(i)}px);z-index:${i};opacity:1;animation-timing-function:${ease}}` +
+        `16%{transform:${split};z-index:${i}}` +
+        `${pc(drop)}{transform:${split};z-index:${i};animation-timing-function:${ease}}` +
+        `${pc(drop + 4)}{transform:translate(0,${st(k)}px);z-index:${k}}` +
+        `42%{transform:translate(0,${st(k)}px) scaleY(.985);z-index:${k}}` +
+        `45%,50%{transform:translate(0,${st(k)}px);z-index:${k};opacity:1}` +
+        `57%,86%{transform:translate(0,${st(k) + 6}px) scale(.94);z-index:${k};opacity:0}` +
+        `93%{transform:translate(0,${st(k)}px);z-index:${k};opacity:1}` +
+        `100%{transform:translate(0,${st(i)}px);z-index:${i};opacity:1}}\n`;
+    }
+    const top = st(N) - 2;
+    for (let j = 0; j < 5; j++) {
+      const a = 47 + j * 2.4, b = a + 6.5, g = 87 + (4 - j) * 1.4, h = g + 4.5;
+      css += `@keyframes shuf-d${j}{` +
+        `0%,${pc(a - 0.1)}{transform:translate(0,${top}px) rotate(0deg);opacity:0}` +
+        `${pc(a)}{transform:translate(0,${top}px) rotate(0deg);opacity:1;animation-timing-function:${ease}}` +
+        `${pc(b)},${pc(g)}{transform:var(--fan);opacity:1;animation-timing-function:${ease}}` +
+        `${pc(h)}{transform:translate(0,${top}px) rotate(0deg);opacity:1}` +
+        `${pc(h + 0.1)},100%{transform:translate(0,${top}px) rotate(0deg);opacity:0}}\n` +
+        `@keyframes shuf-f${j}{0%,${pc(a)}{transform:rotateY(180deg)}${pc(b - 1)},${pc(g)}{transform:rotateY(0deg)}${pc(h - 0.5)},100%{transform:rotateY(180deg)}}\n`;
+    }
+    css += `@keyframes shuf-tag{0%,62%{opacity:0;transform:translate(-50%,6px)}66%,84%{opacity:1;transform:translate(-50%,0)}88%,100%{opacity:0;transform:translate(-50%,6px)}}\n`;
+    const el = document.createElement('style');
+    el.id = 'shuf-css'; el.textContent = css;
+    document.head.appendChild(el);
+  };
+  App.SHUF_T = SHUF_T;
+  App.shuffleSync = () => (-((performance.now() / 1000) % SHUF_T)).toFixed(3);
+  App.shuffleStage = (hand, rots) => {
+    App.shuffleCSS();
+    const backs = Array.from({ length: SHUF_N }, (_, i) => App.cardHTML(null, { back: true, cls: 'sb', attr: `style="animation-name:shuf-b${i}"` })).join('');
+    const deal = hand.map((c, j) => `<div class="sd" style="--fan:rotate(${rots[j]}deg);animation-name:shuf-d${j}"><div class="flip" style="animation-name:shuf-f${j}">${App.cardHTML(c, { cls: 'face' })}${App.cardHTML(null, { back: true, cls: 'rev' })}</div></div>`).join('');
+    return `<div class="shuf" style="--cw:clamp(62px,7vw,92px)">${backs}${deal}</div>`;
+  };
+
   // ------------------------------------------------------------------ games catalogue
   App.GAMES = [
     { id: 'inbetween', name: 'In Between', status: 'live', players: '2–6 players', type: 'Betting', time: '8 min', cats: ['multiplayer', 'filipino'], g: '#FF8A32',
@@ -2336,8 +2406,8 @@ p.loc .flag { width: 24px; height: 18px; }
           </div>
           <div class="hero-facts"><div><b>3</b>players</div><div><b>12–13</b>cards each</div><div><b>~10 min</b>per round</div></div>
         </div>
-        <div class="hero-stage" aria-hidden="true"><div class="felt"></div>
-          <div class="fan" style="--cw:clamp(62px,7vw,92px)">${hand.map((c, i) => App.cardHTML(c, { attr: `style="transform:rotate(${rots[i]}deg);--rot2:${rots[i] * 1.25}deg"` })).join('')}</div>
+        <div class="hero-stage" aria-hidden="true" style="--sync:${App.shuffleSync()}s;--T:${App.SHUF_T}s"><div class="felt"></div>
+          ${App.shuffleStage(hand, rots)}
           <span class="meld-tag">7♦ 8♦ 9♦ 10♦ makes a run</span>
         </div>
       </section>
