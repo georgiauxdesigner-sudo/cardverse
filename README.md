@@ -54,3 +54,12 @@ project and fills in the variables for you. You still need to run `supabase-setu
 `vercel.json` schedules a Vercel Cron job once a day (04:17 UTC) that calls `/api/keepalive`.
 It runs two tiny read queries so the free Supabase project never counts as inactive.
 Check it any time by opening `/api/keepalive` on your site — it should say `"ok": true`.
+
+## Weekly backup
+Every Sunday a GitHub Action (`.github/workflows/backup.yml`) copies all player records and
+game results from Supabase into `backups/` in this repo: one dated file per week plus
+`backups/latest.json`. Run it any time from **Actions > Weekly backup > Run workflow**.
+Backup-only commits don't trigger a new Vercel deploy (see `ignoreCommand` in `vercel.json`).
+
+To restore, give `backups/latest.json` (or a dated file) to Claude or any developer: the
+`players` array goes back into `cv_players` and the `results` array into `cv_results`.
