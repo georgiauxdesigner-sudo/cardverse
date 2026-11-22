@@ -115,6 +115,8 @@ main { min-width: 0; padding: 26px clamp(16px, 3vw, 40px) 80px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
 .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .pill.live { color: var(--cyan); background: rgba(32,229,255,.1); border-color: rgba(32,229,255,.25); }
+.pill.net { color: #3DE99A; background: rgba(61,233,154,.1); border-color: rgba(61,233,154,.28); }
+.pill.net::before { box-shadow: 0 0 0 3px rgba(61,233,154,.18); }
 .pill.sim { color: var(--accent); background: rgba(255,138,50,.1); border-color: rgba(255,138,50,.25); }
 .pill.soon { color: var(--muted); background: rgba(146,157,178,.08); border-color: var(--line); }
 .pill.sample { color: #C49BFF; background: rgba(151,71,255,.1); border-color: rgba(151,71,255,.3); }
@@ -586,6 +588,13 @@ details[open] summary::before { content: '–'; }
 .sol-board .col > .card { position: absolute; left: 0; }
 .sol-board .col .slot.empty { position: absolute; inset: 0; }
 .sol-board [data-src] { cursor: grab; touch-action: none; }
+/* A card partly hidden under another shows only its corner, so the artwork of one card
+   never mixes with the rank of the next. Tableau: rank and suit side by side in the visible strip.
+   Draw-3 waste: the stacked corner stays, the pips are hidden. */
+.sol-board .card.covered .pips, .sol-board .card.covered .face, .sol-board .card.covered .ace, .sol-board .card.covered .big, .sol-board .card.covered .cn.br,
+.sol-ghost .card.covered .pips, .sol-ghost .card.covered .face, .sol-ghost .card.covered .ace, .sol-ghost .card.covered .big, .sol-ghost .card.covered .cn.br { visibility: hidden; }
+.sol-board .card.covered:not(.side):not(.sm) .cn.tl, .sol-ghost .card.covered:not(.sm) .cn.tl { width: auto; flex-direction: row; align-items: baseline; gap: calc(var(--cw) * .02); left: calc(var(--cw) * .07); top: calc(var(--cw) * .05); font-size: calc(var(--cw) * .2); }
+.sol-board .card.covered:not(.side):not(.sm) .cn.tl small, .sol-ghost .card.covered:not(.sm) .cn.tl small { margin: 0; font-size: calc(var(--cw) * .17); }
 .sol-board .drop-over, .sol-board .sol-hint-col { box-shadow: 0 0 0 2px var(--cyan), 0 0 22px rgba(32,229,255,.45); }
 .sol-board .slot.drop-over { border-color: var(--cyan); }
 .card.sol-hint, .slot.sol-hint { box-shadow: 0 0 0 3px var(--accent), 0 0 26px rgba(255,138,50,.65) !important; }
@@ -1851,7 +1860,8 @@ p.loc .flag { width: 24px; height: 18px; }
   const BINGO_PATTERNS = {
     // each entry: list of cell sets; a card wins if ANY set is fully marked (cells are row*5+col)
     diagonal: { name: 'Diagonal', sets: [[0, 6, 12, 18, 24], [4, 8, 12, 16, 20]] },
-    flower: { name: 'Flower', sets: [[6, 7, 8, 11, 12, 13, 16, 17, 18]] },
+    // four cells touching in a 2x2 box; FREE (index 12) never counts, so the four boxes around the centre are excluded
+    box: { name: 'Box of four', sets: [0, 1, 2, 3].flatMap((r) => [0, 1, 2, 3].map((c) => [r * 5 + c, r * 5 + c + 1, (r + 1) * 5 + c, (r + 1) * 5 + c + 1])).filter((set) => !set.includes(12)) },
     straight: { name: 'Straight', sets: [0, 1, 2, 3, 4].flatMap((k) => [[0, 1, 2, 3, 4].map((c) => k * 5 + c), [0, 1, 2, 3, 4].map((r) => r * 5 + k)]) },
     corners: { name: 'Four corners', sets: [[0, 4, 20, 24]] },
     blackout: { name: 'Punuan', sets: [Array.from({ length: 25 }, (_, i) => i)] },
@@ -1859,8 +1869,8 @@ p.loc .flag { width: 24px; height: 18px; }
   const Bingo = {
     id: 'bingo', minPlayers: 2, maxPlayers: 6,
     PATTERNS: BINGO_PATTERNS,
-    ROUNDS: ['diagonal', 'flower', 'straight', 'corners', 'blackout'],
-    POINTS: { diagonal: 10, flower: 10, straight: 10, corners: 10, blackout: 30 },
+    ROUNDS: ['diagonal', 'box', 'straight', 'corners', 'blackout'],
+    POINTS: { diagonal: 10, box: 10, straight: 10, corners: 10, blackout: 30 },
     letter: (n) => 'BINGO'[Math.floor((n - 1) / 15)],
 
     validCard(c) {
@@ -2185,7 +2195,7 @@ p.loc .flag { width: 24px; height: 18px; }
     { id: 'pusoydos', name: 'Pusoy Dos', status: 'live', players: '4 players', type: 'Climbing', time: '12 min', cats: ['multiplayer', 'filipino'], g: '#9747FF',
       desc: 'Shed all 13 cards first. Beat the table with higher singles, pairs and five-card hands. Twos rule.' },
     { id: 'bingo', name: 'Bingo', status: 'live', players: '2–6 players', type: 'Pattern bingo', time: '15 min', cats: ['multiplayer', 'filipino'], g: '#FF5470',
-      desc: 'Five rounds of 75-ball bingo: diagonal, flower, straight, four corners, then punuan to finish.' },
+      desc: 'Five rounds of 75-ball bingo: diagonal, box of four, straight, four corners, then punuan to finish.' },
     { id: 'poker', name: 'Poker', status: 'soon', players: '2–8 players', type: 'Texas Hold’em', time: '20 min', cats: ['multiplayer', 'classic'], g: '#386BFF',
       desc: 'Two hole cards, five on the board, and the best five-card hand takes the pot.' },
     { id: 'blackjack', name: 'Blackjack', status: 'soon', players: '1–5 players', type: 'Banking', time: '5 min', cats: ['multiplayer', 'classic', 'solo'], g: '#FF8A32',
@@ -2344,7 +2354,7 @@ p.loc .flag { width: 24px; height: 18px; }
           <div class="legend"><b>What’s live</b>
             <span><span class="pill live">Playable</span> real rules engine</span>
             <span><span class="pill sim">Bots</span> simulated opponents</span>
-            <span><span class="pill live">Online</span> rooms with friends</span>
+            <span><span class="pill net">Online</span> rooms with friends</span>
             <span><span class="pill soon">Coming soon</span> not built yet</span>
           </div>
           <a class="me-chip" href="#profile" id="mechip"></a>
@@ -2439,7 +2449,7 @@ p.loc .flag { width: 24px; height: 18px; }
           </div>
 
           <div class="section">
-            <div class="section-head"><h2>Play with friends</h2>${App.Net.available() ? '<span class="pill live">Online</span>' : ''}</div>
+            <div class="section-head"><h2>Play with friends</h2>${App.Net.available() ? '<span class="pill net">Online</span>' : ''}</div>
             <div class="glass panel row between" style="gap:16px">
               <div style="flex:1;min-width:220px"><b>Create a room and send the code.</b><p class="small muted" style="margin-top:4px">Works for In Between, Tongits, Pusoy Dos and Bingo. Empty seats are filled by bots.</p></div>
               <div class="row"><button class="btn btn-primary" data-act="gorooms">Create a room</button>
@@ -2827,13 +2837,15 @@ p.loc .flag { width: 24px; height: 18px; }
       <h3>Scoring</h3><p>10 per card to a foundation, 5 per card from the waste to a column, 5 per card turned over, minus 15 for taking a card back off a foundation. There’s no time limit.</p>`;
   App.patternGrid = (p, size = '') => {
     const P = CV.Bingo.PATTERNS[p];
-    const cells = p === 'straight' ? new Set([10, 11, 12, 13, 14]) : new Set(P.sets.flat());
+    // one example for patterns that can be made several ways, so the preview isn't mistaken for 'all of these'
+    const EXAMPLE = { straight: [10, 11, 12, 13, 14], diagonal: [0, 6, 12, 18, 24], box: [0, 1, 5, 6] };
+    const cells = new Set(EXAMPLE[p] || P.sets.flat());
     return `<span class="pgrid ${size}" aria-hidden="true">${Array.from({ length: 25 }, (_, i) => `<i class="${cells.has(i) ? 'on' : ''}"></i>`).join('')}</span>`;
   };
-  App.PATTERN_HINT = { diagonal: 'Either diagonal, corner to corner', flower: 'The 3×3 block around FREE', straight: 'Any full row or column', corners: 'All four corners', blackout: 'Every number on the card' };
+  App.PATTERN_HINT = { diagonal: 'One diagonal line, slanting left or right', box: 'Any 4 squares touching in a 2×2 box. FREE doesn’t count', straight: 'Any full row or column', corners: 'All four corners', blackout: 'Every number on the card' };
   App.RULES.bingo = `<h3>Goal</h3><p>Score the most points across five rounds of 75-ball bingo.</p>
       <h3>Cards and balls</h3><ul><li>Each card has five columns: B 1–15, I 16–30, N 31–45, G 46–60, O 61–75. The centre is FREE.</li><li>Balls are called one at a time. Matching numbers on your cards get marked (or tap them yourself with Auto-mark off).</li><li>All balls go back in at the start of each round. You keep the same cards all night.</li></ul>
-      <h3>Rounds</h3><ul><li><b>1. Diagonal</b>: either diagonal line. 10 pts.</li><li><b>2. Flower</b>: the 3×3 block around the FREE space. 10 pts.</li><li><b>3. Straight</b>: any full row or column. 10 pts.</li><li><b>4. Four corners</b>. 10 pts.</li><li><b>5. Punuan</b>: every number on the card. 30 pts.</li></ul>
+      <h3>Rounds</h3><ul><li><b>1. Diagonal</b>: one diagonal line, slanting left or right. 10 pts.</li><li><b>2. Box of four</b>: any four numbers touching in a 2×2 box. FREE doesn’t count, so the boxes around the centre can’t win. 10 pts.</li><li><b>3. Straight</b>: any full row or column. 10 pts.</li><li><b>4. Four corners</b>. 10 pts.</li><li><b>5. Punuan</b>: every number on the card. 30 pts.</li></ul>
       <h3>Calling bingo</h3><ul><li>When a card completes the round’s pattern, press <b>BINGO!</b>. The game checks it against the numbers called.</li><li>Anyone else who completes the pattern before the next ball shares the points.</li><li>A wrong call is simply rejected. Points are virtual and have no cash value.</li></ul>
       <h3>Winner</h3><p>Most points after the punuan round. Ties go to whoever won the punuan, then to more rounds won.</p>`;
   App.showRules = (id) => App.modal(`<div class="row between"><h2>How to play ${App.game(id).name}</h2><button class="icon-btn" data-close aria-label="Close">${App.icon('x')}</button></div><div class="rules" style="margin-top:14px">${App.RULES[id]}</div>`, { wide: true });
@@ -3221,7 +3233,7 @@ p.loc .flag { width: 24px; height: 18px; }
       root.innerHTML = `
         <div class="game-bar">
           <button class="icon-btn" data-act="leave" aria-label="Leave match">${App.icon('back')}</button>
-          <h2>${g.name}</h2>${this.online ? `<span class="pill live" title="Room code">${App.Online.code || 'Online'}</span>` : '<span class="pill sim">Bots</span>'}
+          <h2>${g.name}</h2>${this.online ? `<span class="pill net" title="Room code">${App.Online.code || 'Online'}</span>` : '<span class="pill sim">Bots</span>'}
           <span class="grow"></span>
           <button class="icon-btn" data-act="rules" data-arg="${this.gameId}" aria-label="Rules">${App.icon('info')}</button>
           <button class="icon-btn" data-act="sound" aria-label="Toggle sound">${App.icon(App.data.settings.sound ? 'sound' : 'mute')}</button>
@@ -3681,7 +3693,7 @@ p.loc .flag { width: 24px; height: 18px; }
       const waste = `<div class="slot waste ${v.drawCount === 3 ? 'wide' : ''}">${shown.map((c, i) => {
         const top = i === shown.length - 1;
         const src = 'waste';
-        return `<div class="wcard" style="left:${v.drawCount === 3 ? i * Math.round(m.cw * (m.compact ? 0.5 : 0.36)) : 0}px">${this.solCard(c, top ? (isHintSrc({ pile: 'waste' }) ? 'sol-hint' : '') : '', top ? `data-src="${src}"` : '')}</div>`;
+        return `<div class="wcard" style="left:${v.drawCount === 3 ? i * Math.round(m.cw * (m.compact ? 0.5 : 0.36)) : 0}px">${this.solCard(c, top ? (isHintSrc({ pile: 'waste' }) ? 'sol-hint' : '') : 'covered side', top ? `data-src="${src}"` : '')}</div>`;
       }).join('')}</div>`;
       const found = v.found.map((p, i) => {
         const top = p[p.length - 1];
@@ -3700,7 +3712,7 @@ p.loc .flag { width: 24px; height: 18px; }
           const d = this.dealt ? '' : ` deal-in`;
           const delay = this.dealt ? '' : ` style="top:${top}px;animation-delay:${k++ * 28}ms"`;
           return x.up
-            ? this.solCard(x.card, hl + d, `data-src="tab:${i}:${idx}" ${delay || pos}`)
+            ? this.solCard(x.card, hl + d + (idx < col.length - 1 ? ' covered' : ''), `data-src="tab:${i}:${idx}" ${delay || pos}`)
             : App.cardHTML(null, { back: true, cls: d.trim(), attr: delay || pos });
         }).join('');
         const h = col.length ? y - (col[col.length - 1].up ? m.upOff : m.downOff) + m.cw * 1.4 : m.cw * 1.4;
@@ -4040,7 +4052,7 @@ p.loc .flag { width: 24px; height: 18px; }
       return `
         <div class="game-bar">
           <button class="icon-btn" data-act="leave" aria-label="Leave game">${App.icon('back')}</button>
-          <h2>${g.name}</h2>${this.online ? `<span class="pill live" title="Room code">${App.Online.code || 'Online'}</span>` : '<span class="pill sim">Bots</span>'}${this.paused ? '<span class="pill soon">Paused</span>' : ''}
+          <h2>${g.name}</h2>${this.online ? `<span class="pill net" title="Room code">${App.Online.code || 'Online'}</span>` : '<span class="pill sim">Bots</span>'}${this.paused ? '<span class="pill soon">Paused</span>' : ''}
           <span class="grow"></span>
           <button class="icon-btn" data-act="rules" data-arg="bingo" aria-label="Rules">${App.icon('info')}</button>
           <button class="icon-btn" data-act="sound" aria-label="Toggle sound">${App.icon(App.data.settings.sound ? 'sound' : 'mute')}</button>
@@ -4614,7 +4626,7 @@ p.loc .flag { width: 24px; height: 18px; }
     }
     if (O.role !== 'host') {
       return `<div class="glass panel stack">
-          <div class="row between"><h3>Invite friends</h3><span class="pill live">Online</span></div>
+          <div class="row between"><h3>Invite friends</h3><span class="pill net">Online</span></div>
           <p class="small muted">Open this room to get a code. Friends enter it, or tap your link, and take the empty seats.</p>
           <button class="btn btn-primary" data-act="invite">${App.icon('link')}Open room and get a code</button>
           ${O.status === 'connecting' ? '<span class="tiny muted">Connecting…</span>' : ''}
@@ -4622,7 +4634,7 @@ p.loc .flag { width: 24px; height: 18px; }
     }
     const joined = O.members.length;
     return `<div class="glass panel stack invite-card">
-        <div class="row between"><h3>Your room is open</h3><span class="pill live">Online</span></div>
+        <div class="row between"><h3>Your room is open</h3><span class="pill net">Online</span></div>
         <div class="code" aria-label="Room code">${O.code}</div>
         <p class="small muted">${joined ? `${joined} friend${joined === 1 ? '' : 's'} joined.` : 'Send the code or link. Friends who join show up in the player list.'}</p>
         <div class="row">
@@ -4659,7 +4671,7 @@ p.loc .flag { width: 24px; height: 18px; }
       inbetween: `Grand Champion session: ${r.sStart} starting points, first to ${r.sWin} winning rounds. Ace ${r.rAce === 'low' ? 'low (1)' : 'high (14)'}, post pays ${r.rPost === 3 ? 'triple' : 'double'}.`,
       tongits: '3 players. Draw, chow, meld and sapaw. No time limit.',
       pusoydos: '4 players, 13 cards each. 3♣ leads. No time limit.',
-      bingo: `5 rounds: diagonal, flower, straight, four corners, punuan. ${r.bgCards} card${r.bgCards === 1 ? '' : 's'} each.`,
+      bingo: `5 rounds: diagonal, box of four, straight, four corners, punuan. ${r.bgCards} card${r.bgCards === 1 ? '' : 's'} each.`,
     }[r.game] || '';
     const inGame = App.match && App.match.guest && !App.match.dead;
     return `${App.topbar(`${esc(L.host.name)}’s room`, `Room ${esc(O.code)}`)}
