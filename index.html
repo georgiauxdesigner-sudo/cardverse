@@ -632,6 +632,7 @@ details[open] summary::before { content: '–'; }
 .bg-main { display: grid; gap: 14px; min-width: 0; align-content: start; }
 .bg-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 14px; }
 .bg-round, .bg-caller { padding: 16px; display: flex; gap: 14px; align-items: center; }
+.bg-short { display: none; }
 .bg-caller { flex-direction: column; align-items: stretch; }
 .bg-pname { font-family: var(--f-head); font-weight: 700; font-size: 26px; line-height: 1.1; }
 .bg-now { display: flex; gap: 14px; align-items: center; }
@@ -703,6 +704,7 @@ details[open] summary::before { content: '–'; }
   .bg-round { flex-direction: column; align-items: flex-start; }
   .bg-round .pgrid.lg { width: 34px; gap: 2px; }
   .bg-round .small { display: none; }
+  .bg-round .bg-short { display: block; margin-top: 2px; line-height: 1.3; }
   .bg-pname { font-size: 19px; }
   .bg-now { gap: 8px; }
   .bg-now .tiny:first-child { display: none; }
@@ -802,6 +804,13 @@ p.loc .flag { width: 24px; height: 18px; }
 }
 
 #confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 120; }
+
+/* "any pattern" preview: the four winning shapes take turns */
+.pcycle { position: relative; display: inline-grid; flex: none; }
+.pcycle > .pgrid { grid-area: 1 / 1; opacity: 0; animation: pcycle 8s infinite; }
+.pcycle > .pgrid:nth-child(2) { animation-delay: 2s; } .pcycle > .pgrid:nth-child(3) { animation-delay: 4s; } .pcycle > .pgrid:nth-child(4) { animation-delay: 6s; }
+@keyframes pcycle { 0% { opacity: 0; } 3%, 22% { opacity: 1; } 25%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .pcycle > .pgrid { animation: none !important; opacity: 0; } .pcycle > .pgrid:first-child { opacity: 1; } }
 </style>
 </head>
 <body>
@@ -1905,11 +1914,26 @@ p.loc .flag { width: 24px; height: 18px; }
     corners: { name: 'Four corners', sets: [[0, 4, 20, 24]] },
     blackout: { name: 'Punuan', sets: [Array.from({ length: 25 }, (_, i) => i)] },
   };
+  // every round before the last: any of these wins
+  const BINGO_ANY = ['diagonal', 'box', 'straight', 'corners'];
+  BINGO_PATTERNS.any = { name: 'Any pattern', sets: BINGO_ANY.flatMap((k) => BINGO_PATTERNS[k].sets), of: BINGO_ANY };
   const Bingo = {
     id: 'bingo', minPlayers: 2, maxPlayers: 6,
     PATTERNS: BINGO_PATTERNS,
-    ROUNDS: ['diagonal', 'box', 'straight', 'corners', 'blackout'],
-    POINTS: { diagonal: 10, box: 10, straight: 10, corners: 10, blackout: 30 },
+    ANY: BINGO_ANY,
+    MIN_ROUNDS: 1, MAX_ROUNDS: 10, DEFAULT_ROUNDS: 5,
+    // n rounds: the last is always punuan, every round before it is "any pattern"
+    plan(n) {
+      n = Math.max(Bingo.MIN_ROUNDS, Math.min(Bingo.MAX_ROUNDS, Math.floor(+n) || Bingo.DEFAULT_ROUNDS));
+      return Array.from({ length: n - 1 }, () => 'any').concat('blackout');
+    },
+    get ROUNDS() { return Bingo.plan(Bingo.DEFAULT_ROUNDS); },
+    POINTS: { any: 10, diagonal: 10, box: 10, straight: 10, corners: 10, blackout: 30 },
+    // which named pattern a card actually made (for "Bea wins with a diagonal")
+    madeWith(card, drawn, patternId) {
+      const ids = BINGO_PATTERNS[patternId].of || [patternId];
+      return ids.find((k) => Bingo.completed(card, drawn, k)) || patternId;
+    },
     letter: (n) => 'BINGO'[Math.floor((n - 1) / 15)],
 
     validCard(c) {
@@ -1936,7 +1960,7 @@ p.loc .flag { width: 24px; height: 18px; }
       rng = rng || cryptoRng();
       const each = Math.max(1, Math.min(3, cfg.cardsEach || 2));
       const st = {
-        game: 'bingo', rounds: (cfg.rounds || Bingo.ROUNDS).slice(), roundIdx: 0,
+        game: 'bingo', rounds: Array.isArray(cfg.rounds) ? cfg.rounds.slice() : Bingo.plan(cfg.roundCount || cfg.rounds), roundIdx: 0,
         seats: cfg.players.map((p) => {
           // players may bring cards they chose (or saved); anything missing or invalid is dealt fresh
           const own = Bingo.validCards(p.cards) ? p.cards.slice(0, each).map((c) => c.slice()) : [];
@@ -1987,10 +2011,11 @@ p.loc .flag { width: 24px; height: 18px; }
       const me = st.seats[seat]; if (!me) return err('Unknown player.');
       const ci = a.card == null ? me.cards.findIndex((c) => Bingo.completed(c, st.drawn, Bingo.pattern(st))) : a.card;
       const card = me.cards[ci];
-      if (!card || !Bingo.completed(card, st.drawn, Bingo.pattern(st))) return err(`Not a bingo yet. You need ${BINGO_PATTERNS[Bingo.pattern(st)].name.toLowerCase()} with numbers that have been called.`);
+      if (!card || !Bingo.completed(card, st.drawn, Bingo.pattern(st))) return err(Bingo.pattern(st) === 'any' ? 'Not a bingo yet. You need a diagonal, box of four, straight or four corners with numbers that have been called.' : `Not a bingo yet. You need ${BINGO_PATTERNS[Bingo.pattern(st)].name.toLowerCase()} with numbers that have been called.`);
       if (st.claims.some((c) => c.seat === seat)) return OK;
-      st.claims.push({ seat, card: ci, balls: st.drawn.length });
-      st.log.push({ t: 'claim', seat, msg: `${me.name} calls BINGO!` });
+      const made = Bingo.madeWith(card, st.drawn, Bingo.pattern(st));
+      st.claims.push({ seat, card: ci, balls: st.drawn.length, made });
+      st.log.push({ t: 'claim', seat, msg: `${me.name} calls BINGO! (${BINGO_PATTERNS[made].name.toLowerCase()})` });
       st.phase = 'claimed'; st.last = { kind: 'claim', seat }; st.seq++;
       return { ok: true, card: ci };
     },
@@ -1999,10 +2024,11 @@ p.loc .flag { width: 24px; height: 18px; }
       const p = Bingo.pattern(st);
       const winners = [...new Set(st.claims.map((c) => c.seat))];
       const pts = Bingo.POINTS[p] || 10;
+      const made = {}; st.claims.forEach((c) => { if (made[c.seat] == null) made[c.seat] = c.made || p; });
       const share = winners.length ? Math.round(pts / winners.length) : 0;
       winners.forEach((s) => { st.seats[s].points += share; st.seats[s].wins++; });
-      st.results.push({ n: st.roundIdx + 1, pattern: p, winners, share, balls: st.drawn.length, lastBall: st.drawn[st.drawn.length - 1], claims: st.claims.slice() });
-      st.log.push({ t: 'roundEnd', msg: `Round ${st.roundIdx + 1} (${BINGO_PATTERNS[p].name}): ${winners.length ? winners.map((s) => st.seats[s].name).join(' & ') + ` win${winners.length === 1 ? 's' : ''} ${share} pts` : 'no winner'}.` });
+      st.results.push({ n: st.roundIdx + 1, pattern: p, winners, made, share, balls: st.drawn.length, lastBall: st.drawn[st.drawn.length - 1], claims: st.claims.slice() });
+      st.log.push({ t: 'roundEnd', msg: `Round ${st.roundIdx + 1} (${BINGO_PATTERNS[p].name}): ${winners.length ? winners.map((s) => st.seats[s].name + (p === 'any' ? ` with ${BINGO_PATTERNS[made[s]].name.toLowerCase()}` : '')).join(' & ') + ` win${winners.length === 1 ? 's' : ''} ${share} pts` : 'no winner'}.` });
       st.seq++;
       if (st.roundIdx >= st.rounds.length - 1) return Bingo._end(st);
       st.phase = 'between';
@@ -2262,7 +2288,7 @@ p.loc .flag { width: 24px; height: 18px; }
     { id: 'pusoydos', name: 'Pusoy Dos', status: 'live', players: '4 players', type: 'Climbing', time: '12 min', cats: ['multiplayer', 'filipino'], g: '#9747FF',
       desc: 'Shed all 13 cards first. Beat the table with higher singles, pairs and five-card hands. Twos rule.' },
     { id: 'bingo', name: 'Bingo', status: 'live', players: '2–6 players', type: 'Pattern bingo', time: '15 min', cats: ['multiplayer', 'filipino'], g: '#FF5470',
-      desc: 'Five rounds of 75-ball bingo: diagonal, box of four, straight, four corners, then punuan to finish.' },
+      desc: '75-ball bingo over as many rounds as you like. Any pattern wins each round: diagonal, box of four, straight or four corners. The last round is punuan.' },
     { id: 'poker', name: 'Poker', status: 'soon', players: '2–8 players', type: 'Texas Hold’em', time: '20 min', cats: ['multiplayer', 'classic'], g: '#386BFF',
       desc: 'Two hole cards, five on the board, and the best five-card hand takes the pot.' },
     { id: 'blackjack', name: 'Blackjack', status: 'soon', players: '1–5 players', type: 'Banking', time: '5 min', cats: ['multiplayer', 'classic', 'solo'], g: '#FF8A32',
@@ -2646,7 +2672,7 @@ p.loc .flag { width: 24px; height: 18px; }
   App.room = null;
   const newCode = () => Array.from({ length: 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
   App.BOTS = [['Bea', 2], ['Migs', 3], ['Tala', 4], ['Jojo', 6], ['Kiko', 7]];
-  App.newRoom = (game = 'tongits') => ({ game, code: newCode(), privacy: 'private', timer: App.data.settings.timer, pace: App.data.settings.pace, ibSeats: 4, sStart: 300, sWin: 5, rAnte: 1, rPost: 2, rPair: 'call', rMax: 'pot', rMode: 'pot', rScore: 'wins', rAce: 'high', ready: false });
+  App.newRoom = (game = 'tongits') => ({ game, code: newCode(), privacy: 'private', timer: App.data.settings.timer, pace: App.data.settings.pace, ibSeats: 4, sStart: 300, sWin: 5, rAnte: 1, bgRounds: 5, rPost: 2, rPair: 'call', rMax: 'pot', rMode: 'pot', rScore: 'wins', rAce: 'high', ready: false });
   App.roomSeats = (r) => (r.game === 'tongits' ? 3 : r.game === 'pusoydos' ? 4 : r.game === 'bingo' ? r.bgSeats || 4 : r.ibSeats);
   App.pages.rooms = () => {
     const r = (App.room = App.room || App.newRoom());
@@ -2665,13 +2691,14 @@ p.loc .flag { width: 24px; height: 18px; }
             <div class="field"><span class="lab">${r.game === 'bingo' ? 'Calling speed' : 'Bot speed'}</span>${seg('pace', [['relaxed', r.game === 'bingo' ? 'Slow' : 'Relaxed'], ['normal', 'Normal'], ['quick', r.game === 'bingo' ? 'Fast' : 'Quick']])}</div>
           </div>
           ${r.game === 'bingo' ? `<div class="sess stack">
-            <div class="row between"><h3>Bingo night</h3><span class="pill live">5 rounds</span></div>
+            <div class="row between"><h3>Bingo night</h3><span class="pill live">${r.bgRounds || 5} round${(r.bgRounds || 5) === 1 ? '' : 's'}</span></div>
             <div class="row" style="gap:18px;align-items:flex-start">
               <div class="field"><span class="lab">Players</span>${seg('bgSeats', [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']])}</div>
               <div class="field"><span class="lab">Cards per player</span>${seg('bgCards', [[1, '1'], [2, '2'], [3, '3']])}</div>
+              <div class="field"><span class="lab">Number of rounds (the last one is punuan)</span><div class="row">${seg('bgRounds', [[3, '3'], [5, '5'], [7, '7'], [10, '10']])}<input class="input" type="number" inputmode="numeric" min="1" max="10" step="1" value="${r.bgRounds || 5}" data-input="bgRounds" aria-label="Custom number of rounds" style="width:72px"></div></div>
             </div>
             ${App.bingoPickerHTML(r.bgCards || 2)}
-            <div class="field"><span class="lab">Rounds, in order</span><div class="bg-lineup">${CV.Bingo.ROUNDS.map((p, i) => `<span class="bg-step">${App.patternGrid(p)}<b>${i + 1}. ${CV.Bingo.PATTERNS[p].name}</b><span class="tiny muted">${CV.Bingo.POINTS[p]} pts</span></span>`).join('')}</div></div>
+            <div class="field"><span class="lab">Rounds, in order</span><div class="bg-lineup">${CV.Bingo.plan(r.bgRounds || 5).map((p, i) => `<span class="bg-step">${App.patternGrid(p)}<b>${i + 1}. ${CV.Bingo.PATTERNS[p].name}</b><span class="tiny muted">${CV.Bingo.POINTS[p]} pts</span></span>`).join('')}</div></div>
             <p class="tiny muted">Balls are called automatically. You can pause any time. Two players who bingo on the same ball share the round’s points.</p>
           </div>` : ''}
           ${r.game === 'inbetween' ? `<div class="sess stack">
@@ -3025,16 +3052,18 @@ p.loc .flag { width: 24px; height: 18px; }
       <h3>Controls</h3><ul><li>Tap a card to send it to its best spot, or drag it where you want.</li><li>Undo takes back a move. Hint shows a useful move. Finish appears once every card is face up.</li></ul>
       <h3>Scoring</h3><p>10 per card to a foundation, 5 per card from the waste to a column, 5 per card turned over, minus 15 for taking a card back off a foundation. There’s no time limit.</p>`;
   App.patternGrid = (p, size = '') => {
+    // "any pattern" rounds: the four shapes take turns in the preview
+    if (p === 'any') return `<span class="pcycle ${size}" aria-hidden="true">${CV.Bingo.ANY.map((k) => App.patternGrid(k, size)).join('')}</span>`;
     const P = CV.Bingo.PATTERNS[p];
     // one example for patterns that can be made several ways, so the preview isn't mistaken for 'all of these'
     const EXAMPLE = { straight: [10, 11, 12, 13, 14], diagonal: [0, 6, 12, 18, 24], box: [0, 1, 5, 6] };
     const cells = new Set(EXAMPLE[p] || P.sets.flat());
     return `<span class="pgrid ${size}" aria-hidden="true">${Array.from({ length: 25 }, (_, i) => `<i class="${cells.has(i) ? 'on' : ''}"></i>`).join('')}</span>`;
   };
-  App.PATTERN_HINT = { diagonal: 'One diagonal line, slanting left or right', box: 'Any 4 squares touching in a 2×2 box. FREE doesn’t count', straight: 'Any full row or column', corners: 'All four corners', blackout: 'Every number on the card' };
-  App.RULES.bingo = `<h3>Goal</h3><p>Score the most points across five rounds of 75-ball bingo.</p>
+  App.PATTERN_HINT = { any: 'A diagonal, box of four, straight or four corners. Any of them wins', diagonal: 'One diagonal line, slanting left or right', box: 'Any 4 squares touching in a 2×2 box. FREE doesn’t count', straight: 'Any full row or column', corners: 'All four corners', blackout: 'Every number on the card' };
+  App.RULES.bingo = `<h3>Goal</h3><p>Score the most points across your rounds of 75-ball bingo.</p>
       <h3>Cards and balls</h3><ul><li>Each card has five columns: B 1–15, I 16–30, N 31–45, G 46–60, O 61–75. The centre is FREE.</li><li>Balls are called one at a time. Matching numbers on your cards get marked (or tap them yourself with Auto-mark off).</li><li>All balls go back in at the start of each round. You keep the same cards all night.</li></ul>
-      <h3>Rounds</h3><ul><li><b>1. Diagonal</b>: one diagonal line, slanting left or right. 10 pts.</li><li><b>2. Box of four</b>: any four numbers touching in a 2×2 box. FREE doesn’t count, so the boxes around the centre can’t win. 10 pts.</li><li><b>3. Straight</b>: any full row or column. 10 pts.</li><li><b>4. Four corners</b>. 10 pts.</li><li><b>5. Punuan</b>: every number on the card. 30 pts.</li></ul>
+      <h3>Rounds</h3><ul><li>The host picks how many rounds to play. The <b>last round is always punuan</b>: every number on the card, 30 pts.</li><li>Every round before that, <b>any of these patterns wins</b> (10 pts):</li><li><b>Diagonal</b>: one diagonal line, slanting left or right.</li><li><b>Box of four</b>: any four numbers touching in a 2×2 box. FREE doesn’t count, so the boxes around the centre can’t win.</li><li><b>Straight</b>: any full row or column.</li><li><b>Four corners</b>: all four corner numbers.</li></ul>
       <h3>Calling bingo</h3><ul><li>When a card completes the round’s pattern, press <b>BINGO!</b>. The game checks it against the numbers called.</li><li>Anyone else who completes the pattern before the next ball shares the points.</li><li>A wrong call is simply rejected. Points are virtual and have no cash value.</li></ul>
       <h3>Winner</h3><p>Most points after the punuan round. Ties go to whoever won the punuan, then to more rounds won.</p>`;
   App.showRules = (id) => App.modal(`<div class="row between"><h2>How to play ${App.game(id).name}</h2><button class="icon-btn" data-close aria-label="Close">${App.icon('x')}</button></div><div class="rules" style="margin-top:14px">${App.RULES[id]}</div>`, { wide: true });
@@ -3086,7 +3115,7 @@ p.loc .flag { width: 24px; height: 18px; }
       this.players = opts.players ? opts.players.map((p) => Object.assign({}, p))
         : [{ name: u.name, bot: false, av: u.avatar, photo: u.photo || null, country: u.country || '', cards: opts.myCards || null }].concat(App.BOTS.slice(0, n - 1).map(([b, av]) => ({ name: b, bot: true, av })));
       const cfg = { players: this.players, dealer: opts.dealer || 0, startChips: opts.startChips || opts.ibChips || 300, rotations: opts.ibRot || 4 };
-      if (this.isBingo) cfg.cardsEach = opts.cardsEach || 2;
+      if (this.isBingo) { cfg.cardsEach = opts.cardsEach || 2; cfg.roundCount = opts.roundCount || 5; }
       if (this.solo) cfg.drawCount = opts.drawCount || App.data.settings.solDraw || 1;
       if (opts.session) Object.assign(cfg, { session: true, winRounds: opts.winRounds, scoring: opts.scoring, rules: opts.rules });
       this.auth = this.guest ? new App.RemoteAuthority(gameId) : new CV.LocalAuthority(gameId, cfg);
@@ -3808,7 +3837,7 @@ p.loc .flag { width: 24px; height: 18px; }
       case 'ready': App.room.ready = !App.room.ready; App.sfx('select'); App.route(); App.Online.hostLobby(); break;
       case 'startroom': {
         const r = App.room;
-        const opts = r.game === 'inbetween' ? App.sessionOpts(r) : r.game === 'bingo' ? { pace: r.pace, bingoSeats: r.bgSeats || 4, cardsEach: r.bgCards || 2, myCards: App.bingoChosen(r) } : { timer: 0, pace: r.pace };
+        const opts = r.game === 'inbetween' ? App.sessionOpts(r) : r.game === 'bingo' ? { pace: r.pace, bingoSeats: r.bgSeats || 4, cardsEach: r.bgCards || 2, roundCount: r.bgRounds || 5, myCards: App.bingoChosen(r) } : { timer: 0, pace: r.pace };
         if (App.Online.role === 'host') {
           if (!App.Online.allReady()) { App.toast('Wait until everyone in the room is ready.'); break; }
           try { App.Online.start(r.game, opts); } catch (err) { App.toast(err.message, 'bad'); }
@@ -3878,7 +3907,8 @@ p.loc .flag { width: 24px; height: 18px; }
   document.addEventListener('change', (e) => {
     const el = e.target.closest('[data-input]'); if (!el || !App.room) return;
     const k = el.dataset.input;
-    const val = k === 'rAnte'
+    const val = k === 'bgRounds' ? Math.max(1, Math.min(10, Math.floor(+el.value) || 5))
+      : k === 'rAnte'
       ? Math.round(Math.max(1, Math.min(1000, Math.floor((App.room.sStart || 300) / 2), +el.value || 1)))
       : Math.round(Math.max(20, Math.min(10000, +el.value || 300)) / 10) * 10;
     App.room[k] = val; App.route(); if (App.Online && App.Online.hostLobby) App.Online.hostLobby();
@@ -4214,7 +4244,7 @@ p.loc .flag { width: 24px; height: 18px; }
       const steps = v.rounds.map((rp, i) => {
         const res = v.results[i];
         const state = i < v.roundIdx || res ? 'done' : i === v.roundIdx ? 'now' : '';
-        const who = res ? (res.winners.length ? res.winners.map((s) => esc(this.players[s].name)).join(' & ') : 'No winner') : `${B.POINTS[rp]} pts`;
+        const who = res ? (res.winners.length ? res.winners.map((s) => esc(this.players[s].name) + (rp === 'any' && res.made && res.made[s] ? `, ${B.PATTERNS[res.made[s]].name.toLowerCase()}` : '')).join(' & ') : 'No winner') : `${B.POINTS[rp]} pts`;
         return `<div class="bg-step ${state}">${App.patternGrid(rp, 'sm')}<span><b>${i + 1}. ${B.PATTERNS[rp].name}</b><br><span class="tiny muted">${who}</span></span></div>`;
       }).join('');
 
@@ -4237,7 +4267,7 @@ p.loc .flag { width: 24px; height: 18px; }
         ${App.patternGrid(p, 'lg')}
         <div><div class="tiny muted">Round ${v.roundIdx + 1} of ${v.rounds.length}${p === 'blackout' ? ', final round' : ''}</div>
           <div class="bg-pname">${P.name}</div>
-          <div class="small muted">${App.PATTERN_HINT[p]}. ${B.POINTS[p]} pts.</div></div></div>`;
+          <div class="small muted">${App.PATTERN_HINT[p]}. ${B.POINTS[p]} pts.</div>${p === 'any' ? '<div class="tiny muted bg-short">Diagonal, box of four, straight or corners</div>' : p === 'blackout' ? '<div class="tiny muted bg-short">Fill the whole card</div>' : ''}</div></div>`;
 
       // players
       const plates = v.seats.map((s, i) => {
@@ -4267,10 +4297,10 @@ p.loc .flag { width: 24px; height: 18px; }
       // overlay banners
       let overlay = '';
       if (v.phase === 'claimed') {
-        overlay = `<div class="round-banner"><span class="tiny muted">Checking the card…</span><b>BINGO! ${v.claims.map((c) => esc(this.players[c.seat].name)).join(' & ')}</b><span class="small muted">Anyone else with ${P.name.toLowerCase()} can still call it before the next ball.</span></div>`;
+        overlay = `<div class="round-banner"><span class="tiny muted">Checking the card…</span><b>BINGO! ${v.claims.map((c) => esc(this.players[c.seat].name)).join(' & ')}</b><span class="small muted">Anyone else with ${p === 'any' ? 'a pattern' : P.name.toLowerCase()} can still call it before the next ball.</span></div>`;
       } else if (v.phase === 'between' && v.results.length) {
         const r = v.results[v.results.length - 1];
-        overlay = `<div class="round-banner"><span class="tiny muted">Round ${r.n}: ${B.PATTERNS[r.pattern].name}</span><b>${r.winners.length ? r.winners.map((s) => esc(this.players[s].name) + (s === this.me ? ' (you)' : '')).join(' & ') + ` win${r.winners.length === 1 ? 's' : ''} ${r.share} pts` : 'No winner'}</b><span class="small muted">Bingo on ball ${r.balls}${r.lastBall ? `, ${label(r.lastBall)}` : ''}. Next: ${B.PATTERNS[v.rounds[r.n]].name}.</span></div>`;
+        overlay = `<div class="round-banner"><span class="tiny muted">Round ${r.n}: ${B.PATTERNS[r.pattern].name}</span><b>${r.winners.length ? r.winners.map((s) => esc(this.players[s].name) + (s === this.me ? ' (you)' : '') + (r.pattern === 'any' && r.made && r.made[s] ? ` (${B.PATTERNS[r.made[s]].name.toLowerCase()})` : '')).join(' & ') + ` win${r.winners.length === 1 ? 's' : ''} ${r.share} pts` : 'No winner'}</b><span class="small muted">Bingo on ball ${r.balls}${r.lastBall ? `, ${label(r.lastBall)}` : ''}. Next: ${B.PATTERNS[v.rounds[r.n]].name}.</span></div>`;
       }
 
       // called board
@@ -4467,7 +4497,7 @@ p.loc .flag { width: 24px; height: 18px; }
     },
     roomSummary() {
       const r = App.room || this.room;
-      return { game: r.game, seats: this.seatsFor(r), sWin: r.sWin, sStart: r.sStart, rAce: r.rAce, rPost: r.rPost, rPair: r.rPair, rMax: r.rMax, rMode: r.rMode, rScore: r.rScore, rAnte: r.rAnte, bgCards: r.bgCards || 2, pace: r.pace };
+      return { game: r.game, seats: this.seatsFor(r), sWin: r.sWin, sStart: r.sStart, rAce: r.rAce, rPost: r.rPost, rPair: r.rPair, rMax: r.rMax, rMode: r.rMode, rScore: r.rScore, rAnte: r.rAnte, bgCards: r.bgCards || 2, bgRounds: r.bgRounds || 5, pace: r.pace };
     },
     hostMsg(m) {
       if (!m || !m.t) return;
@@ -4572,7 +4602,7 @@ p.loc .flag { width: 24px; height: 18px; }
       const seat = m.players.findIndex((p) => p.id === mem.id);
       this.main.send({
         t: 'start', to: mem.id, seat, matchId: this.matchId, game: m.gameId,
-        opts: { pace: m.opts.pace, session: m.opts.session, winRounds: m.opts.winRounds, scoring: m.opts.scoring, rules: m.opts.rules, cardsEach: m.opts.cardsEach, room: m.opts.room },
+        opts: { pace: m.opts.pace, session: m.opts.session, winRounds: m.opts.winRounds, scoring: m.opts.scoring, rules: m.opts.rules, cardsEach: m.opts.cardsEach, roundCount: m.opts.roundCount, room: m.opts.room },
         players: m.players.map((p) => ({ id: p.id, name: p.name, av: p.av, photo: p.photo, country: p.country || '', bot: p.bot && !p.away })),
       });
     },
@@ -4903,7 +4933,7 @@ p.loc .flag { width: 24px; height: 18px; }
       inbetween: `Grand Champion session: ${r.sStart} starting points, first to ${r.sWin} winning rounds. Ace ${r.rAce === 'low' ? 'low (1)' : 'high (14)'}, post pays ${r.rPost === 3 ? 'triple' : 'double'}.`,
       tongits: '3 players. Draw, chow, meld and sapaw. No time limit.',
       pusoydos: '4 players, 13 cards each. 3♣ leads. No time limit.',
-      bingo: `5 rounds: diagonal, box of four, straight, four corners, punuan. ${r.bgCards} card${r.bgCards === 1 ? '' : 's'} each.`,
+      bingo: `${r.bgRounds || 5} round${(r.bgRounds || 5) === 1 ? '' : 's'}: any pattern wins, the last is punuan. ${r.bgCards} card${r.bgCards === 1 ? '' : 's'} each.`,
     }[r.game] || '';
     const inGame = App.match && App.match.guest && !App.match.dead;
     return `${App.topbar(`${esc(L.host.name)}’s room`, `Room ${esc(O.code)}`)}
