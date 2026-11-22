@@ -158,7 +158,10 @@ main { min-width: 0; padding: 26px clamp(16px, 3vw, 40px) 80px; }
 .fan { position: absolute; left: 50%; top: 52%; width: 0; height: 0; }
 .fan .card { position: absolute; left: calc(var(--cw) * -.5); top: calc(var(--cw) * -.7); transform-origin: 50% 160%; transition: transform .5s var(--ease); }
 /* featured-game shuffle: keyframes are generated in App.shuffleCSS */
-.shuf { position: absolute; left: 50%; top: 54%; width: 0; height: 0; }
+.hero-stage:has(.shuf) { --cw: clamp(84px, 8.6vw, 128px); }
+/* cards + tag are centred as one group: the fan spans about -0.75cw to +0.8cw around the pivot, the tag sits just under it */
+.shuf { position: absolute; left: 50%; top: calc(50% - var(--cw) * .2 + var(--nudge, 0px)); width: 0; height: 0; }
+.hero-stage:has(.shuf) .meld-tag { top: calc(50% - var(--cw) * .2 + var(--nudge, 0px) + var(--cw) * .98); bottom: auto; }
 .shuf .sb, .shuf .sd { position: absolute; left: calc(var(--cw) * -.5); top: calc(var(--cw) * -.7); animation-duration: var(--T); animation-delay: var(--sync); animation-iteration-count: infinite; animation-fill-mode: both; will-change: transform; }
 .shuf .sb { transform-origin: 50% 50%; }
 .shuf .sd { width: var(--cw); height: calc(var(--cw) * 1.4); transform-origin: 50% 160%; z-index: 40; perspective: 700px; }
@@ -547,7 +550,7 @@ details[open] summary::before { content: '–'; }
   .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
   .chip { flex: none; }
 }
-@media (max-width: 900px) { .hero-stage .meld-tag { bottom: 2%; } .fan { top: 46%; } .shuf { top: 50%; } }
+@media (max-width: 900px) { .hero-stage .meld-tag { bottom: 2%; } .fan { top: 46%; } .hero-stage:has(.shuf) { --cw: clamp(80px, 22vw, 118px); min-height: calc(var(--cw) * 2.45 + 44px); --nudge: 8px; } .hero-stage:has(.shuf) .meld-tag { bottom: auto; } }
 
 /* chow + bot action callouts */
 .pile { position: relative; }
@@ -2170,7 +2173,7 @@ p.loc .flag { width: 24px; height: 18px; }
     App.shuffleCSS();
     const backs = Array.from({ length: SHUF_N }, (_, i) => App.cardHTML(null, { back: true, cls: 'sb', attr: `style="animation-name:shuf-b${i}"` })).join('');
     const deal = hand.map((c, j) => `<div class="sd" style="--fan:rotate(${rots[j]}deg);animation-name:shuf-d${j}"><div class="flip" style="animation-name:shuf-f${j}">${App.cardHTML(c, { cls: 'face' })}${App.cardHTML(null, { back: true, cls: 'rev' })}</div></div>`).join('');
-    return `<div class="shuf" style="--cw:clamp(62px,7vw,92px)">${backs}${deal}</div>`;
+    return `<div class="shuf">${backs}${deal}</div>`;
   };
 
   // ------------------------------------------------------------------ games catalogue
