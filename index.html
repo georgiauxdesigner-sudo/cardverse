@@ -413,8 +413,16 @@ main { min-width: 0; padding: 26px clamp(16px, 3vw, 40px) 80px; }
 .outcome.lose { color: var(--bad); background: rgba(255,84,112,.12); }
 .outcome.post { color: var(--accent); background: rgba(255,138,50,.14); }
 .bet-box { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
-.bet-box input[type=range] { width: 200px; accent-color: var(--primary); }
-.bet-val { font-family: var(--f-head); font-weight: 700; font-size: 20px; min-width: 56px; text-align: center; }
+.bet-field { display: flex; flex-direction: column; gap: 3px; }
+.bet-field .input { width: 112px; height: 46px; font-family: var(--f-head); font-weight: 700; font-size: 22px; text-align: center; padding: 0 8px; -moz-appearance: textfield; }
+.bet-field .input::-webkit-outer-spin-button, .bet-field .input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bet-field .input.invalid { border-color: #FF5A6E; box-shadow: 0 0 0 3px rgba(255,90,110,.18); }
+.bet-box { align-items: flex-end; }
+.bet-box .btn { height: 46px; }
+.btn.allin { letter-spacing: .04em; font-weight: 800; }
+.btn.allin .amt { font-family: var(--f-head); opacity: .85; margin-left: 4px; letter-spacing: 0; }
+.bet-risk { text-align: center; margin-top: 8px; color: var(--muted); }
+.bet-risk .good { color: #3DE99A; } .bet-risk .bad { color: #FF6B7D; }
 .chipstack { font-family: var(--f-head); font-weight: 700; color: #FFC06B; font-size: 13px; }
 
 /* Tongits */
@@ -765,6 +773,33 @@ p.loc .flag { width: 24px; height: 18px; }
   .profile-head > .btn { grid-column: 1 / -1; justify-self: stretch; }
   .profile-head p.loc { flex-wrap: wrap; }
 }
+
+/* settle up */
+.settle { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.settle li { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid var(--line); }
+.settle li.mine-out { border-color: rgba(255,107,125,.35); background: rgba(255,107,125,.06); }
+.settle li.mine-in { border-color: rgba(61,233,154,.35); background: rgba(61,233,154,.06); }
+.settle-who { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.settle-who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settle-arrow { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.settle-arrow svg { width: 16px; height: 16px; }
+.settle-amt { font-family: var(--f-head); font-size: 18px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.pot-dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,138,50,.14); color: var(--accent); }
+.pot-dot svg { width: 16px; height: 16px; }
+.settle.compact li { padding: 7px 10px; gap: 8px; }
+.settle.compact .settle-amt { font-size: 15px; }
+.settle-rounds { margin-top: 16px; }
+.settle-rounds summary { cursor: pointer; padding: 6px 0; }
+.settle-round { padding: 12px 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.settle-box { text-align: left; margin: 0 0 18px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.025); border: 1px solid var(--line); display: grid; gap: 10px; }
+@media (max-width: 600px) {
+  .settle li { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "from amt" "to to"; row-gap: 6px; }
+  .settle li > .settle-who.from { grid-area: from; }
+  .settle li > .settle-arrow { display: none; }
+  .settle li > .settle-who.to { grid-area: to; padding-left: 10px; color: var(--muted); font-weight: 500; font-size: 14px; }
+  .settle li > .settle-who.to::before { content: attr(data-verb); margin-right: 2px; font-size: 12px; }
+  .settle li > .settle-amt { grid-area: amt; }
+}
 </style>
 </head>
 <body>
@@ -842,7 +877,7 @@ p.loc .flag { width: 24px; height: 18px; }
   // session that runs round by round until a set number of rounds have a winner.
   // All amounts are non-redeemable virtual points.
   // =====================================================================
-  const IB_RULES = { ante: 10, postMult: 2, pairRule: 'call', maxBet: 'pot', roundMode: 'pot', potCap: 3, ace: 'high' };
+  const IB_RULES = { ante: 1, postMult: 2, pairRule: 'call', maxBet: 'pot', roundMode: 'pot', potCap: 3, ace: 'high' };
   const InBetween = {
     id: 'inbetween',
     minPlayers: 2, maxPlayers: 6,
@@ -1064,8 +1099,9 @@ p.loc .flag { width: 24px; height: 18px; }
       st.leftoverPot = st.pot;
       if (st.pot > 0 && alive.length) {
         const share = Math.floor(st.pot / alive.length);
-        alive.forEach((s) => (s.chips += share));
-        st.pot -= share * alive.length;
+        let extra = st.pot - share * alive.length; // odd points go one each, in seat order, so no points vanish
+        alive.forEach((s) => { s.chips += share + (extra > 0 ? 1 : 0); if (extra > 0) extra--; });
+        st.pot = 0;
         st.potShare = share;
       }
       if (st.session) {
@@ -1085,7 +1121,7 @@ p.loc .flag { width: 24px; height: 18px; }
       st.result = {
         winners,
         reason: 'Most chips after the final rotation',
-        standings: st.seats.map((s, i) => ({ seat: i, name: s.name, score: s.chips })).sort((a, b) => b.score - a.score),
+        standings: st.seats.map((s, i) => ({ seat: i, name: s.name, score: s.chips, start: st.startChips, net: s.chips - st.startChips })).sort((a, b) => b.score - a.score),
       };
       st.log.push({ t: 'end', msg: `Game over. ${winners.map((i) => st.seats[i].name).join(' & ')} wins with ${best} chips.` });
       st.seq++;
@@ -1119,7 +1155,8 @@ p.loc .flag { width: 24px; height: 18px; }
       if (gap >= 10 && v.rules && v.rules.roundMode === 'pot') return { type: 'bet', amount: max }; // go for the pot
       if (ev <= 0.05) return gap >= 6 ? { type: 'bet', amount: min } : { type: 'pass' };
       const frac = Math.min(0.5, ev);
-      const amt = Math.max(min, Math.min(max, Math.round((max * frac) / 5) * 5));
+      const step = max >= 100 ? 5 : 1; // small pots (1-point antes) bet in single points
+      const amt = Math.max(min, Math.min(max, Math.round((max * frac) / step) * step));
       return { type: 'bet', amount: amt };
     },
 
@@ -2025,7 +2062,33 @@ p.loc .flag { width: 24px; height: 18px; }
     onChange(f) { this.listeners.push(f); }
   }
 
-  const api = { SUITS, SUIT_SYMBOL, rankLabel, cardName, makeDeck, shuffle, seededRng, cryptoRng, InBetween, Tongits, Pusoy, Solitaire, Bingo, ENGINES, LocalAuthority };
+  // ---------------------------------------------------------------------
+  // Settle up: the fewest transfers that square everyone's points.
+  // nets[i] > 0 means player i is up, < 0 means down. `pot` (optional) is the change in the pot:
+  // > 0 when points went into the pot, < 0 when the pot paid out points it held from before.
+  // Returns [{ from, to, amount }] where from/to are seat numbers or 'pot'. Virtual points only.
+  // ---------------------------------------------------------------------
+  function settle(nets, pot = 0) {
+    const debt = [], cred = [];
+    nets.forEach((n, i) => { if (n < 0) debt.push({ who: i, left: -n }); else if (n > 0) cred.push({ who: i, left: n }); });
+    if (pot > 0) cred.push({ who: 'pot', left: pot }); else if (pot < 0) debt.push({ who: 'pot', left: -pot });
+    // players settle with players first; the pot only takes or covers what is left over
+    const order = (a, b) => (a.who === 'pot') - (b.who === 'pot') || b.left - a.left || String(a.who).localeCompare(String(b.who));
+    debt.sort(order); cred.sort(order);
+    const out = [];
+    for (const d of debt) {
+      for (const c of cred) {
+        if (!d.left) break;
+        if (!c.left || (d.who === 'pot' && c.who === 'pot')) continue;
+        const amt = Math.min(d.left, c.left);
+        out.push({ from: d.who, to: c.who, amount: amt });
+        d.left -= amt; c.left -= amt;
+      }
+    }
+    return out;
+  }
+
+  const api = { settle, SUITS, SUIT_SYMBOL, rankLabel, cardName, makeDeck, shuffle, seededRng, cryptoRng, InBetween, Tongits, Pusoy, Solitaire, Bingo, ENGINES, LocalAuthority };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CV = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -2071,6 +2134,8 @@ p.loc .flag { width: 24px; height: 18px; }
     bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
     star: '<path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1L3.2 9.4l6.1-.8L12 3Z"/>',
     crown: '<path d="m3 8 4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8Z"/>',
+    arrow: '<path d="M4 12h15m-5-5 5 5-5 5"/>',
+    coins: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
     flame: '<path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-3.5 2-5 .8 1.2 1.5 1.8 2.5 2C11.5 8 11 5.5 12 3Z"/>',
     spark: '<path d="M12 3v4m0 10v4M3 12h4m10 0h4M6 6l2.5 2.5m7 7L18 18M6 18l2.5-2.5m7-7L18 6"/>',
@@ -2489,7 +2554,7 @@ p.loc .flag { width: 24px; height: 18px; }
   App.room = null;
   const newCode = () => Array.from({ length: 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
   App.BOTS = [['Bea', 2], ['Migs', 3], ['Tala', 4], ['Jojo', 6], ['Kiko', 7]];
-  App.newRoom = (game = 'tongits') => ({ game, code: newCode(), privacy: 'private', timer: App.data.settings.timer, pace: App.data.settings.pace, ibSeats: 4, sStart: 300, sWin: 5, rAnte: 10, rPost: 2, rPair: 'call', rMax: 'pot', rMode: 'pot', rScore: 'wins', rAce: 'high', ready: false });
+  App.newRoom = (game = 'tongits') => ({ game, code: newCode(), privacy: 'private', timer: App.data.settings.timer, pace: App.data.settings.pace, ibSeats: 4, sStart: 300, sWin: 5, rAnte: 1, rPost: 2, rPair: 'call', rMax: 'pot', rMode: 'pot', rScore: 'wins', rAce: 'high', ready: false });
   App.roomSeats = (r) => (r.game === 'tongits' ? 3 : r.game === 'pusoydos' ? 4 : r.game === 'bingo' ? r.bgSeats || 4 : r.ibSeats);
   App.pages.rooms = () => {
     const r = (App.room = App.room || App.newRoom());
@@ -2527,7 +2592,7 @@ p.loc .flag { width: 24px; height: 18px; }
             </div>
             <details class="rules-box" open><summary><b>Game rules</b> <span class="tiny muted">Customise for your group</span></summary>
               <div class="row" style="gap:18px;align-items:flex-start;margin-top:12px">
-                <div class="field"><span class="lab">Ante</span>${seg('rAnte', [[5, '5'], [10, '10'], [20, '20'], [50, '50']])}</div>
+                <div class="field"><span class="lab">Ante (everyone puts this in the pot)</span><div class="row">${seg('rAnte', [[1, '1'], [5, '5'], [10, '10'], [20, '20']])}<input class="input" type="number" inputmode="numeric" min="1" max="1000" step="1" value="${r.rAnte}" data-input="rAnte" aria-label="Custom ante" style="width:84px"></div></div>
                 <div class="field"><span class="lab">Hitting the post pays</span>${seg('rPost', [[2, 'Double'], [3, 'Triple']])}</div>
                 <div class="field"><span class="lab">Ace counts as</span>${seg('rAce', [['high', 'High (14)'], ['low', 'Low (1)']])}</div>
                 <div class="field"><span class="lab">Pairs</span>${seg('rPair', [['call', 'Call higher or lower'], ['pass', 'Pass']])}</div>
@@ -2747,11 +2812,31 @@ p.loc .flag { width: 24px; height: 18px; }
       ${list.length ? `<div class="mini-list">${list.slice(0, 5).map((x) => `<div class="mini-row"><span class="grow"><span class="t">${esc(x.champNames)} champion</span><br><span class="tiny muted">${new Date(x.at).toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${x.session.totalRounds} rounds, ${x.players.length} players</span></span><button class="btn btn-ghost btn-sm" data-act="viewsession" data-arg="${x.id}">View</button></div>`).join('')}</div>`
         : '<p class="small muted">Finish an In Between session and save it to keep the full round-by-round history here.</p>'}</div>`;
   };
+  // Settle-up list. players: [{name, av, photo}], transfers from CV.settle. Virtual points only.
+  App.settleName = (players, who, me) => (who === 'pot' ? 'the pot' : players[who].name + (who === me ? ' (you)' : ''));
+  App.settleText = (players, t, me) => t.map((x) => x.to === 'pot' ? `${App.settleName(players, x.from, me)} put ${x.amount} into the pot`
+    : x.from === 'pot' ? `${App.settleName(players, x.to, me)} took ${x.amount} from the pot`
+    : `${App.settleName(players, x.from, me)} owes ${App.settleName(players, x.to, me)} ${x.amount}`);
+  App.settleHTML = (players, t, me, opts = {}) => {
+    if (!t.length) return `<p class="small muted">${opts.empty || 'Everyone finished even. Nobody owes anything.'}</p>`;
+    const who = (i, side, verb = '') => i === 'pot' ? `<span class="settle-who ${side}" data-verb="${verb}"><span class="pot-dot">${App.icon('coins')}</span><span>The pot</span></span>`
+      : `<span class="settle-who ${side}" data-verb="${verb}">${App.avatar(players[i].name, players[i].av, 'sm', players[i].photo)}<span>${esc(players[i].name)}${i === me ? ' (you)' : ''}</span></span>`;
+    return `<ul class="settle ${opts.compact ? 'compact' : ''}">${t.map((x) => `<li class="${x.from === me ? 'mine-out' : x.to === me ? 'mine-in' : ''}">
+      ${who(x.from, 'from')}<span class="settle-arrow"><span>${x.to === 'pot' ? 'puts in' : x.from === 'pot' ? 'pays out' : 'owes'}</span>${App.icon('arrow')}</span>${who(x.to, 'to', x.to === 'pot' ? 'puts in →' : x.from === 'pot' ? 'pays out →' : 'owes →')}
+      <b class="settle-amt">${x.amount.toLocaleString()} <span class="tiny muted">pts</span></b></li>`).join('')}</ul>`;
+  };
   App.sessionSummaryText = (x) => {
     const lines = [`DeckFlix In Between session, ${new Date(x.at).toLocaleString()}`, `Grand Champion: ${x.champNames}`, `Rounds completed: ${x.session.totalRounds} (target ${x.session.target} with a winner)`, `Starting points: ${x.config.sStart} each (virtual, no cash value)`, '', 'Final rankings:'];
     x.rows.forEach((r) => lines.push(`${r.place}. ${r.name}: ${r.wins} wins, ${r.losses} losses, ${r.final} points (${r.net >= 0 ? '+' : ''}${r.net})${r.eliminated ? `, eliminated round ${r.elimRound}` : ''}`));
+    const seatOrder = x.players.map((_, i) => (x.rows.find((r) => r.seat === i) || { net: 0 }).net);
+    lines.push('', 'Settle up (virtual points, no cash value):');
+    const tot = CV.settle(seatOrder);
+    (tot.length ? App.settleText(x.players, tot, -1) : ['Everyone finished even.']).forEach((l) => lines.push('- ' + l));
     lines.push('', 'Rounds:');
-    x.session.rounds.forEach((r) => lines.push(`R${r.n}: ${r.winner != null ? x.players[r.winner].name : 'no winner'}, ${r.how}`));
+    x.session.rounds.forEach((r) => {
+      lines.push(`R${r.n}: ${r.winner != null ? x.players[r.winner].name : 'no winner'}, ${r.how}`);
+      App.settleText(x.players, CV.settle(r.deltas, -r.deltas.reduce((a, b) => a + b, 0) || 0), -1).forEach((l) => lines.push('   ' + l));
+    });
     return lines.join('\n');
   };
   App.pages['session-results'] = () => {
@@ -2796,6 +2881,18 @@ p.loc .flag { width: 24px; height: 18px; }
         </tbody></table>
         ${S.leftoverPot ? `<p class="tiny muted" style="margin-top:10px">${S.leftoverPot} points left in the pot were shared among players still in (${S.potShare} each) and are included in final points.</p>` : ''}
       </section>
+      <section class="glass panel section">
+        <div class="section-head"><h2>Settle up</h2><span class="tiny muted">Virtual points, no cash value</span></div>
+        <p class="small muted" style="margin:-4px 0 12px">Who owes whom for the whole session, using the fewest transfers that square everyone’s net points.</p>
+        ${App.settleHTML(P, CV.settle(P.map((_, i) => (x.rows.find((r) => r.seat === i) || { net: 0 }).net)), x.me || 0)}
+        <details class="settle-rounds"><summary><b>Round by round</b> <span class="tiny muted">who owes the winner each round</span></summary>
+          ${S.rounds.map((r) => {
+            const pot = -r.deltas.reduce((a, b) => a + b, 0) || 0;
+            return `<div class="settle-round"><div class="row between"><b>Round ${r.n}</b><span class="small">${r.winner != null ? `Winner: <b>${nm(r.winner)}</b>` : '<span class="muted">No winner</span>'}</span></div>
+              ${App.settleHTML(P, CV.settle(r.deltas, pot), x.me || 0, { compact: true, empty: 'No points changed hands this round.' })}</div>`;
+          }).join('')}
+        </details>
+      </section>
       <section class="glass panel section" style="overflow-x:auto">
         <div class="section-head"><h2>Round by round</h2><span class="tiny muted">Points after each round, change in brackets</span></div>
         <table class="table"><thead><tr><th>Round</th><th>Winner</th><th>How it ended</th>${P.map((p, i) => `<th class="num">${esc(p.name)}</th>`).join('')}<th>Eliminated</th></tr></thead><tbody>
@@ -2814,7 +2911,7 @@ p.loc .flag { width: 24px; height: 18px; }
   // ------------------------------------------------------------------ rules text
   App.RULES = {
     inbetween: `<h3>Goal</h3><p>Finish with the most chips. Chips are game points with no cash value.</p>
-      <h3>Each turn</h3><ul><li>Everyone antes 10 to start the pot, and again whenever the pot is emptied.</li><li>You’re dealt two face-up posts. Bet from 10 up to the size of the pot, or pass.</li><li>The third card decides it: <b>between</b> the posts, you win your bet from the pot. <b>Outside</b>, you pay your bet into the pot. <b>Equal to a post</b>, you pay double.</li><li>Posts that are a pair: call higher or lower before the card is turned. Matching the pair pays double.</li><li>Consecutive posts (like 7 and 8) leave no gap, so the turn passes automatically.</li><li>Only the number counts. Suit and colour never matter: a 7 of any suit is between a 4 and a 9.</li><li>Aces are high (14) unless the host sets them low (1) in a private session. If you can’t cover a loss, you pay what you have.</li></ul>
+      <h3>Each turn</h3><ul><li>Everyone antes to start the pot (1 point by default, the host can change it), and again whenever the pot is emptied.</li><li>You’re dealt two face-up posts. Type any bet from the ante up to the size of the pot, tap <b>All in</b> to risk the whole pot, or pass.</li><li>The third card decides it: <b>between</b> the posts, you win your bet from the pot. <b>Outside</b>, you pay your bet into the pot. <b>Equal to a post</b>, you pay double.</li><li>Posts that are a pair: call higher or lower before the card is turned. Matching the pair pays double.</li><li>Consecutive posts (like 7 and 8) leave no gap, so the turn passes automatically.</li><li>Only the number counts. Suit and colour never matter: a 7 of any suit is between a 4 and a 9.</li><li>Aces are high (14) unless the host sets them low (1) in a private session. If you can’t cover a loss, you pay what you have.</li></ul>
       <h3>End</h3><p>A quick game ends after the chosen number of rotations, or when only one player has chips. Any chips left in the pot are shared out.</p>
       <h3>Tracked sessions (private rooms)</h3><ul><li>The host sets starting points, how many winning rounds finish the session, the player limit, and the house rules (ante, post penalty, pairs, largest bet).</li><li>A round is won by taking the whole pot, or by the biggest gain over a table round, depending on the room’s setting. Every round’s winner, balances and eliminations are recorded.</li><li>Players who run out of points are eliminated. When the target number of rounds have a winner, the session ends and the Grand Champion is crowned.</li><li>Ties are broken by the second scoring rule, then the biggest single winning bet, then whoever reached their win total first.</li></ul>`,
     tongits: `<h3>Goal</h3><p>Empty your hand, or have the lowest points when the round ends. A, 2–10 count face value; J, Q, K count 10.</p>
@@ -2905,7 +3002,7 @@ p.loc .flag { width: 24px; height: 18px; }
       this.me = opts.mySeat || 0;
       if (this.host) this.auth.onChange((a, seat, r) => App.Online.sendViews(seat >= 0 ? { seat, a, r: r ? { outcome: r.outcome, delta: r.delta } : null } : null));
       this.sel = new Set(); this.chat = []; this.tab = 'log'; this.sort = 'rank';
-      this.bet = 10; this.dealt = false; this.prevHand = new Set(); this.ibWins = 0; this.hintIdx = -1; this.hintMarks = null;
+      this.bet = null; this.dealt = false; this.prevHand = new Set(); this.ibWins = 0; this.hintIdx = -1; this.hintMarks = null;
       this.timers = []; this.deadline = null; this.recorded = false; this.bubbles = {};
       this.seenSeq = -1; this.callouts = {};
       if (opts.session) this.tab = 'score';
@@ -3138,6 +3235,8 @@ p.loc .flag { width: 24px; height: 18px; }
           <h2>${won ? 'You win!' : esc(winnerName) + ' wins'}</h2>
           <p class="muted small" style="margin-top:6px">${App.game(this.gameId).name}, won by ${esc(res.reason.charAt(0).toLowerCase() + res.reason.slice(1))}.</p>
           <div style="text-align:left;margin:18px 0">${rows}</div>
+          ${this.gameId === 'inbetween' && res.standings[0] && res.standings[0].net != null ? `<div class="settle-box"><div class="row between"><b>Settle up</b><span class="tiny muted">Virtual points, no cash value</span></div>
+            ${App.settleHTML(this.players, CV.settle(this.players.map((_, i) => (res.standings.find((r) => r.seat === i) || { net: 0 }).net)), this.me, { compact: true })}</div>` : ''}
           <div class="row" style="justify-content:center">${this.guest ? '<button class="btn btn-ghost" disabled>Waiting for the host to start a rematch</button><button class="btn btn-ghost" data-act="tolobby">Back to the room</button>'
             : `<button class="btn btn-accent" data-act="rematch">Rematch</button><button class="btn btn-ghost" data-act="tolobby">${this.online ? 'Back to the room' : 'Return to lobby'}</button>`}</div>
           <p class="tiny muted" style="margin-top:12px">Saved to your match history${App.Rank.online() ? ' and rankings' : ''}.</p></div>`, { wide: true, locked: true });
@@ -3248,8 +3347,20 @@ p.loc .flag { width: 24px; height: 18px; }
         </div>`;
       this.renderFeed(scrollFeed);
       if (this.deadline) this.tickTimer();
-      const range = $('#betrange');
-      if (range) range.addEventListener('input', () => { this.bet = +range.value; $('#betval').textContent = this.bet; });
+      const inp = $('#betinput');
+      if (inp) {
+        const v0 = this.v();
+        inp.addEventListener('input', () => {
+          const n = Math.floor(Number(inp.value));
+          if (inp.value !== '' && Number.isFinite(n)) this.bet = n;
+          const r = $('#betrisk'); if (r) r.innerHTML = this.ibRisk(v0, inp.value === '' ? NaN : n);
+          inp.classList.toggle('invalid', !(n >= v0.minBet && n <= v0.maxBet));
+        });
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && v0.postKind !== 'pair') { e.preventDefault(); this.act_ib('bet'); } });
+        inp.addEventListener('focus', () => { this._betFocus = true; inp.select(); });
+        inp.addEventListener('blur', () => { this._betFocus = false; });
+        if (this._betFocus) { inp.focus({ preventScroll: true }); const L = inp.value.length; try { inp.setSelectionRange(L, L); } catch (e) {} }
+      }
     }
     sidePanelHTML(v) {
       return `<aside class="glass side-panel ${this.feedOpen ? 'open' : ''}">
@@ -3317,10 +3428,14 @@ p.loc .flag { width: 24px; height: 18px; }
         else {
           const pay = v.rules.postMult === 3 ? 'triple' : 'double';
           status = v.postKind === 'pair' ? `<b>Pair of ${CV.rankLabel(a.r)}s.</b> Bet the next card is higher or lower. Matching the pair pays ${pay}.` : `<b>${need}.</b> Only the number counts, suit and colour don’t matter. Same number as a post pays ${pay}.`;
-          actions = `<div class="bet-box"><button class="btn btn-ghost btn-sm" data-act="ibquick" data-arg="min">Min</button><button class="btn btn-ghost btn-sm" data-act="ibquick" data-arg="half">Half pot</button><button class="btn btn-ghost btn-sm" data-act="ibquick" data-arg="max">${max === v.pot ? 'Whole pot' : 'Max'}</button>
-            <input id="betrange" type="range" min="${min}" max="${max}" step="${max - min >= 20 ? 5 : 1}" value="${this.bet}" aria-label="Bet amount"><span class="bet-val" id="betval">${this.bet}</span></div>
-            ${v.postKind === 'pair' ? `<button class="btn btn-primary" data-act="ib" data-arg="higher">Bet higher</button><button class="btn btn-primary" data-act="ib" data-arg="lower">Bet lower</button>` : `<button class="btn btn-accent" data-act="ib" data-arg="bet">Place bet</button>`}
-            <button class="btn btn-ghost" data-act="ib" data-arg="pass">Pass</button>`;
+          const allIn = max === v.pot ? 'the whole pot' : 'all your points';
+          actions = `<div class="bet-box">
+              <label class="bet-field"><span class="tiny muted">Your bet</span><input id="betinput" class="input" type="number" inputmode="numeric" pattern="[0-9]*" min="${min}" max="${max}" step="1" value="${this.bet}" aria-label="Bet amount, ${min} to ${max}"></label>
+              ${v.postKind === 'pair' ? `<button class="btn btn-primary" data-act="ib" data-arg="higher">Bet higher</button><button class="btn btn-primary" data-act="ib" data-arg="lower">Bet lower</button>` : `<button class="btn btn-primary" data-act="ib" data-arg="bet">Place bet</button>`}
+              <button class="btn btn-accent allin" data-act="ibquick" data-arg="allin" title="Bet ${allIn}">ALL IN <span class="amt">${max}</span></button>
+              <button class="btn btn-ghost" data-act="ib" data-arg="pass">Pass</button>
+            </div>
+            <div class="bet-risk small" id="betrisk" aria-live="polite">${this.ibRisk(v, this.bet)}</div>`;
         }
       } else status = v.phase === 'reveal' ? 'Revealing…' : `Waiting for ${esc(turnName)}.`;
       const unit = v.session ? 'points' : 'chips';
@@ -3339,17 +3454,36 @@ p.loc .flag { width: 24px; height: 18px; }
       }
       return { seats, center: banner + center, status, actions, right: `${info}<span class="pill plain sim" style="font-size:14px"><span class="chipstack">${me.chips}</span>&nbsp;${unit}</span>` };
     }
+    // What a bet can win or lose, shown live under the bet box
+    ibRisk(v, amt) {
+      const min = v.minBet, max = v.maxBet, me = v.seats[this.me].chips;
+      if (!Number.isFinite(amt) || amt < min || amt > max) return `<span class="bad">Enter a bet from ${min} to ${max}.</span>`;
+      const pm = v.rules.postMult, post = Math.min(me, amt * pm);
+      const all = amt === max ? `<b>All in.</b> ` : '';
+      return `${all}Win <b class="good">+${amt}</b> · Miss <b class="bad">−${amt}</b> · Hit the post <b class="bad">−${post}</b>${post < amt * pm ? ' (all you have)' : ''}`;
+    }
     act_ib(arg) {
       const v = this.v();
       if (arg === 'pass') return this.submit({ type: 'pass' });
-      const a = { type: 'bet', amount: this.bet };
+      const inp = $('#betinput');
+      const amt = Math.floor(Number(inp ? inp.value : this.bet));
+      if (!Number.isFinite(amt) || amt < v.minBet || amt > v.maxBet) {
+        App.sfx('error'); App.toast(`Bet from ${v.minBet} to ${v.maxBet}.`);
+        if (inp) { inp.focus(); inp.select(); }
+        return;
+      }
+      this.bet = amt;
+      const a = { type: 'bet', amount: amt };
       if (arg === 'higher' || arg === 'lower') a.call = arg;
       this.submit(a);
     }
     act_ibquick(arg) {
       const v = this.v();
-      this.bet = arg === 'min' ? v.minBet : arg === 'max' ? v.maxBet : Math.max(v.minBet, Math.min(v.maxBet, Math.round(v.pot / 2 / 5) * 5));
-      this.render();
+      if (arg !== 'allin') return;
+      this.bet = v.maxBet;
+      // a pair still needs a call, so fill in the amount and let the player pick higher or lower
+      if (v.postKind === 'pair') { this.render(); App.toast(`All in: ${v.maxBet}. Now pick higher or lower.`); return; }
+      this.submit({ type: 'bet', amount: v.maxBet });
     }
 
     // ---------------------------------------------------- Tongits
@@ -3648,8 +3782,11 @@ p.loc .flag { width: 24px; height: 18px; }
   });
   document.addEventListener('change', (e) => {
     const el = e.target.closest('[data-input]'); if (!el || !App.room) return;
-    const val = Math.round(Math.max(20, Math.min(10000, +el.value || 300)) / 10) * 10;
-    App.room[el.dataset.input] = val; App.route();
+    const k = el.dataset.input;
+    const val = k === 'rAnte'
+      ? Math.round(Math.max(1, Math.min(1000, Math.floor((App.room.sStart || 300) / 2), +el.value || 1)))
+      : Math.round(Math.max(20, Math.min(10000, +el.value || 300)) / 10) * 10;
+    App.room[k] = val; App.route(); if (App.Online && App.Online.hostLobby) App.Online.hostLobby();
   });
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (App.match && !App.match.dead) App.match.render(); }, 150); });
   window.addEventListener('hashchange', () => { if (App.skipRoute) { App.skipRoute = false; return; } App.route(); });
